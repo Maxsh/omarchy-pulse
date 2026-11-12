@@ -41,8 +41,8 @@ Panel {
   readonly property bool hasData: stats !== null && stats.spanMinutes > 0
 
   // Fixed column widths so the tornado's central axis aligns across rows.
-  readonly property int appsNameWidth: Commons.Style.space(88)
-  readonly property int appsPctWidth: Commons.Style.space(36)
+  readonly property int appsNameWidth: Commons.Style.space(76)
+  readonly property int appsPctWidth: Commons.Style.space(34)
 
   readonly property color kbColor: hostWidget ? hostWidget.kbColor : Commons.Color.accent
   readonly property color mouseColor: hostWidget ? hostWidget.mouseColor : Commons.Util.alpha(Commons.Color.accent, 0.45)
@@ -223,9 +223,9 @@ Panel {
       id: barZone
       height: parent.height
       anchors.left: appName.right
-      anchors.leftMargin: Commons.Style.space(8)
+      anchors.leftMargin: Commons.Style.space(6)
       anchors.right: pctText.left
-      anchors.rightMargin: Commons.Style.space(8)
+      anchors.rightMargin: Commons.Style.space(6)
       anchors.verticalCenter: parent.verticalCenter
 
       // The axis sits in the middle of the zone. The scale is data-driven:
@@ -378,61 +378,68 @@ Panel {
         // ---- Top apps (today): tornado rows — keyboard grows left, mouse
         // grows right from the central axis; hover for the exact split. From
         // the window watcher's spans joined onto the input minutes. Hidden
-        // until a window watcher has run at least once.
-        PanelSectionHeader {
-          text: strings.t("pulse.sectionApps")
-          font.family: Commons.Style.font.family
-          visible: root.apps !== null || root.appsUnavailable
-        }
-
-        Item {
+        // until a window watcher has run at least once. Grouped in a tight
+        // inner column so the header, captions and bars read as one block.
+        Column {
           width: parent ? parent.width : 0
-          height: keyCaption.implicitHeight
-          visible: root.apps !== null
+          spacing: Commons.Style.space(3)
+          visible: root.apps !== null || root.appsUnavailable
 
-          readonly property real zoneLeft: root.appsNameWidth + Commons.Style.space(8)
-          readonly property real zoneWidth: width - zoneLeft - (root.appsPctWidth + Commons.Style.space(8))
-          readonly property real axisX: zoneLeft + zoneWidth / 2
-
-          Text {
-            id: keyCaption
-            textFormat: Text.PlainText
-            text: strings.t("pulse.keyboard")
-            color: Commons.Color.muted
+          PanelSectionHeader {
+            text: strings.t("pulse.sectionApps")
             font.family: Commons.Style.font.family
-            font.pixelSize: Commons.Style.font.bodySmall
-            width: parent.zoneWidth / 2 - Commons.Style.space(4)
-            horizontalAlignment: Text.AlignRight
-            x: parent.zoneLeft
-            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width
           }
 
-          Rectangle {
-            x: parent.axisX - width / 2
-            width: 1
-            height: parent.height
-            color: Commons.Util.alpha(Commons.Color.accent, 0.35)
+          Item {
+            width: parent.width
+            height: keyCaption.implicitHeight
+            visible: root.apps !== null
+
+            readonly property real zoneLeft: root.appsNameWidth + Commons.Style.space(6)
+            readonly property real zoneWidth: width - zoneLeft - (root.appsPctWidth + Commons.Style.space(6))
+            readonly property real axisX: zoneLeft + zoneWidth / 2
+
+            Text {
+              id: keyCaption
+              textFormat: Text.PlainText
+              text: strings.t("pulse.keyboard")
+              color: Commons.Color.muted
+              font.family: Commons.Style.font.family
+              font.pixelSize: Commons.Style.font.bodySmall
+              width: parent.zoneWidth / 2 - Commons.Style.space(4)
+              horizontalAlignment: Text.AlignRight
+              x: parent.zoneLeft
+              anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Rectangle {
+              x: parent.axisX - width / 2
+              width: 1
+              height: parent.height
+              color: Commons.Util.alpha(Commons.Color.accent, 0.35)
+            }
+
+            Text {
+              textFormat: Text.PlainText
+              text: strings.t("pulse.mouse")
+              color: Commons.Color.muted
+              font.family: Commons.Style.font.family
+              font.pixelSize: Commons.Style.font.bodySmall
+              x: parent.axisX + Commons.Style.space(4)
+              anchors.verticalCenter: parent.verticalCenter
+            }
           }
 
-          Text {
-            textFormat: Text.PlainText
-            text: strings.t("pulse.mouse")
-            color: Commons.Color.muted
-            font.family: Commons.Style.font.family
-            font.pixelSize: Commons.Style.font.bodySmall
-            x: parent.axisX + Commons.Style.space(4)
-            anchors.verticalCenter: parent.verticalCenter
-          }
-        }
+          Repeater {
+            model: root.apps !== null ? root.apps.apps.length : 0
 
-        Repeater {
-          model: root.apps !== null ? root.apps.apps.length : 0
+            TornadoRow {
+              required property int modelData
 
-          TornadoRow {
-            required property int modelData
-
-            record: root.apps.apps[modelData]
-            maxShare: root.apps.maxShare
+              record: root.apps.apps[modelData]
+              maxShare: root.apps.maxShare
+            }
           }
         }
 
