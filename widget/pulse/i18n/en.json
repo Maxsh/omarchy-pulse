@@ -1,14 +1,11 @@
 {
   "pulse.title": "Pulse",
   "pulse.subtitle": "Today so far",
+  "pulse.since": "Since %1",
   "pulse.keyboard": "Keyboard",
   "pulse.mouse": "Mouse",
-  "pulse.scrollLabel": "Scroll",
-  "pulse.travel": "Pointer travel",
-  "pulse.active": { "one": "%1 active minute", "other": "%1 active minutes" },
-  "pulse.pixel": { "one": "%1 px", "other": "%1 px" },
-  "pulse.presses": { "one": "%1 key press today", "other": "%1 key presses today" },
-  "pulse.clicks": { "one": "%1 click today", "other": "%1 clicks today" },
+  "pulse.idle": "Idle",
+  "pulse.noData": "No data yet — waiting for pulse-watcher",
   "pulse.error.unreachable": "ActivityWatch is not reachable at %1",
   "pulse.error.noInputBucket": "No ActivityWatch input bucket — is pulse-watcher running?"
 }

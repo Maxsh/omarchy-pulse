@@ -4,41 +4,43 @@ import qs.Commons as Commons
 import qs.Ui
 import "PulseModel.js" as PulseModel
 
-// Bar label showing today's keyboard and mouse activity from the local
-// ActivityWatch, plus a popup with the breakdown. Counts only — the
-// pulse-watcher never records key content (see the privacy invariant in
-// AGENTS.md).
+// Bar widget showing today's input split — keyboard vs mouse vs idle — as a
+// small stacked bar: three proportional segments in one accent color at
+// three intensities, so it reads correctly on any theme. The popup shows
+// the exact percentages. Absolute counts are deliberately not displayed;
+// relative values only (product goal), and the pulse-watcher never records
+// key content anyway (privacy invariant in AGENTS.md).
 //
 // Left click toggles the summary panel, right click forces a refresh.
+// Horizontal bar only for now; vertical bars fall back to the same row.
 BarWidget {
   id: root
   moduleName: "maxsh.pulse"
 
-  property var today: null
+  property var activity: null
   property string lastError: ""
 
   readonly property string awUrl: setting("awUrl", PulseModel.DEFAULT_AW_URL)
+  readonly property bool hasData: activity !== null && activity.spanMinutes > 0
 
-  // Reactive on today and on the translation catalog, so a late-loading
-  // catalog still renders instead of leaving a raw key in the bar.
-  readonly property string displayText: lastError !== ""
-    ? "\uF109 —"
-    : today
-      ? "\uF109 " + PulseModel.compactNumber(today.presses)
-        + "  \uF245 " + PulseModel.compactNumber(today.clicks)
-      : ""
+  // One hue, three intensities: keyboard bright, mouse mid, idle dim.
+  readonly property color kbColor: Commons.Color.accent
+  readonly property color mouseColor: Commons.Util.alpha(Commons.Color.accent, 0.45)
+  readonly property color idleColor: Commons.Util.alpha(Commons.Color.accent, 0.15)
 
+  Commons.Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
+
+  // Reactive on activity and on the translation catalog, so a late-loading
+  // catalog still renders instead of leaving a raw key in the tooltip.
   readonly property string tooltipText: lastError !== ""
     ? (lastError === "noInputBucket"
         ? strings.t("pulse.error.noInputBucket")
         : strings.t("pulse.error.unreachable").arg(awUrl))
-    : today
-      ? strings.tn("pulse.presses", today.presses).arg(Commons.I18n.formatNumber(today.presses))
-        + " · "
-        + strings.tn("pulse.clicks", today.clicks).arg(Commons.I18n.formatNumber(today.clicks))
-      : ""
-
-  Commons.Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
+    : !hasData
+      ? strings.t("pulse.noData")
+      : strings.t("pulse.keyboard") + " " + Commons.I18n.formatNumber(activity.kbPct) + "% · "
+        + strings.t("pulse.mouse") + " " + Commons.I18n.formatNumber(activity.mousePct) + "% · "
+        + strings.t("pulse.idle") + " " + Commons.I18n.formatNumber(activity.idlePct) + "%"
 
   // ---- Summary popup. Shape contract for shell summon/hide/toggle routing:
   //      Bar.findPanelWidget requires open/close/opened on the bar-widget root.
@@ -64,8 +66,10 @@ BarWidget {
     if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
   }
 
-  readonly property real openPanelIndicatorWidth: button.labelWidth
-  readonly property real openPanelIndicatorHeight: Math.max(Commons.Style.space(10), Math.round(Commons.Style.bar.iconSlot * 0.55))
+  // The widget paints a fixed-width row, so the open-panel indicator dot
+  // takes the row's width rather than a rule across the whole slot.
+  readonly property real openPanelIndicatorWidth: Style.space(48)
+  readonly property real openPanelIndicatorHeight: Math.max(Style.space(10), Math.round(Style.bar.iconSlot * 0.55))
 
   function injectPanel() {
     var target = panelLoader.item
@@ -98,7 +102,7 @@ BarWidget {
         return
       }
       root.lastError = ""
-      root.today = result.today
+      root.activity = result.activity
     })
   }
 
@@ -117,16 +121,53 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.displayText
-    hasVisualContent: text !== ""
+    text: ""
+    labelVisible: false
+    hasVisualContent: true
+    fixedWidth: Style.space(64)
     tooltipText: root.tooltipText
-    // Activity counts to read, not a control to press: clicks open the panel
-    // (the panel opening is the feedback), so the button itself never shrinks.
+    // A proportion to read at a glance, not a control to press: clicks open
+    // the panel (the panel opening is the feedback), so the button itself
+    // never shrinks.
     pressFeedbackButtons: Qt.NoButton
 
     onPressed: function(button) {
       if (button === Qt.RightButton) root.refresh()
       else root.togglePanel()
+    }
+
+    // The stacked split: idle fills the whole pill dimly; keyboard and mouse
+    // stack over it from the left, so the empty tail reads as idle time.
+    Item {
+      width: Style.space(48)
+      height: Style.space(10)
+      anchors.centerIn: parent
+
+      readonly property real unit: root.hasData ? width / 100.0 : 0
+
+      Rectangle {
+        anchors.fill: parent
+        radius: Style.space(2)
+        color: root.idleColor
+      }
+
+      Rectangle {
+        id: kbSegment
+        x: 0
+        width: parent.unit * (root.hasData ? root.activity.kbPct : 0)
+        height: parent.height
+        radius: Style.space(2)
+        color: root.kbColor
+      }
+
+      Rectangle {
+        id: mouseSegment
+        x: kbSegment.width
+        width: parent.unit * (root.hasData ? root.activity.mousePct : 0)
+        height: parent.height
+        radius: Style.space(2)
+        color: root.mouseColor
+      }
     }
   }
 }
