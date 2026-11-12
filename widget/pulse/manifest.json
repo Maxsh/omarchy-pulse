@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "maxsh.pulse",
+  "name": "Pulse",
+  "version": "0.1.0",
+  "author": "Maxsh",
+  "description": "Keyboard & mouse activity from ActivityWatch",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Pulse",
+    "description": "Today's keyboard and mouse activity (ActivityWatch)",
+    "category": "Stats",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
