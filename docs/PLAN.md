@@ -19,6 +19,7 @@ Give an Omarchy user a live, local view of their day: how active they were, and 
 | D5 | AFK/idle | Implicit: empty minutes are not emitted | Absence of an event means no input in that minute — enough for activity curves. An explicit AFK state (e.g. via hypridle) can be added later if "screen-on but idle" semantics are wanted. |
 | D6 | Bucket schema | Stock-compatible: bucket id `aw-watcher-input_{hostname}`, type `os.hid.input`, data keys `presses`, `clicks`, `deltaX`, `deltaY`, `scrollX`, `scrollY` | Confirmed from aw-watcher-input/aw-watcher-afk sources (Q1 resolved). Deliberate deviation: per-minute events instead of 5s heartbeats — identical totals for AW tooling, ~12× fewer events, light payload for the widget. |
 | D7 | Chart granularity | Day = 24 hourly bins; Week = 7 daily bins | Readable at panel size; weekly hourly (168 points) only if it looks good later. |
+| D8 | Values shown | **Relative only**: keyboard/mouse/idle as percentages of the session so far (first input minute → now); no absolute counts in bar or panel | Product direction from first field use: absolute click/press counts don't answer "how did I spend my time". Classification per minute by dominant input (presses vs clicks/scroll/movement). Session span instead of since-midnight so night sleep doesn't dilute the split. |
 
 ## 3. Architecture
 
@@ -103,9 +104,11 @@ Repo, README, AGENTS.md, this plan.
 - Implemented: device discovery + classification; per-minute counter; AW client (create bucket + POST, retry queue); systemd user unit; TOML config + CLI; logging without key content; 27 unit/integration tests.
 - **Acceptance:** met — live on this machine: 6 devices read (built-in keyboard, touchpad, mouse, hotkey pads), per-minute events visible in AW within ~60 s while typing/mousing (e.g. `presses=121` in one minute), watcher survives AW starting later via its retry queue.
 
-### Phase 2 — bar widget MVP
-- Plugin scaffold copied from a built-in plugin's structure; bar text with today's totals; AW fetch with error caching; install script (symlink into `~/.config/omarchy/plugins/`).
-- **Acceptance:** bar shows today's keyboard/mouse counts, refreshes ≤60 s, survives theme switch and `omarchy restart shell`.
+### Phase 2 — bar widget MVP — **code complete (2026-11-12); visual verification pending**
+- Shipped: `maxsh.pulse` bar widget — stacked mini-bar (keyboard/mouse/idle percentages of the session), percentage tooltip, summary popup with swatch rows; plugin-local i18n (en.json); `install/plugin.sh`; `install/aw-server.service`.
+- Verified: full data pipeline live (watcher → AW → QML) with real values; JS analysis pipeline validated in an isolated quickshell run (28/4/68% over a 47-minute session).
+- Field findings fixed: `evdev.list_devices()` hides unreadable devices; `qs.Commons` import semantics for third-party plugins; imperative tooltip built before the i18n catalog loaded (made reactive); raw `%1` plural row (missing tn+arg).
+- **Remaining:** visual confirmation on the live bar (blocked by an unrelated lock-screen pause during the session); overlap with a third-party panel that ignores the popout protocol is that plugin's bug — ours follows `KeyboardPanel`/`Bar.requestPopout` correctly.
 
 ### Phase 3 — chart popup
 - `KeyboardPanel` with Day/Week toggle and 3-series `Canvas` chart; hover readout; theme colors; motion per Omarchy guidelines.

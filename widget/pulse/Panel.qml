@@ -11,7 +11,7 @@ import qs.Ui
 Panel {
   id: root
   moduleName: "maxsh.pulse"
-  manageIpc: false
+  ipcTarget: "maxsh.pulse"
 
   property var anchorItem: null
 
