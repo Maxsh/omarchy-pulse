@@ -4,10 +4,15 @@
 
 var DEFAULT_AW_URL = "http://localhost:5600"
 var BUCKET_TYPE = "os.hid.input"
+var WINDOW_BUCKET_TYPE = "currentwindow"
 
 // Pointer travel that marks a minute as mouse-driven even without clicks
 // (about a screen crossing on this scale).
 var MOVEMENT_THRESHOLD_PX = 400
+
+// Apps below this share of attributed active time fold into "Other";
+// "Other" itself only shows when it clears the same bar.
+var MIN_APP_SHARE_PCT = 3
 
 function normalizeBase(url) {
   var base = String(url || DEFAULT_AW_URL)
@@ -97,6 +102,7 @@ function fetch(awUrl, daysBack, callback) {
         activity: analyzed.days[analyzed.days.length - 1],
         days: analyzed.days,
         total: analyzed.total,
+        todayMinutes: analyzed.todayMinutes,
       })
     })
   })
@@ -135,6 +141,7 @@ function analyzeWeek(events, nowMs, daysBack) {
   for (var d = daysBack - 1; d >= 0; d--) midnights.push(midnightDaysAgo(new Date(nowMs), d))
   var days = []
   for (var b = 0; b < daysBack; b++) days.push(emptyDay())
+  var todayMinutes = []  // [{tsMs, kind}] — today's classified minutes, for per-app joins
 
   for (var i = 0; i < events.length; i++) {
     var event = events[i]
@@ -154,10 +161,11 @@ function analyzeWeek(events, nowMs, daysBack) {
     day.activeMinutes += 1
     if (kind === 1) day.kbMinutes += 1
     else day.mouseMinutes += 1
+    if (index === days.length - 1) todayMinutes.push({ tsMs: ts, kind: kind })
   }
 
   for (var k = 0; k < days.length; k++) finalizeDay(days[k], k === days.length - 1, nowMs)
-  return { days: days, total: totalOf(days) }
+  return { days: days, total: totalOf(days), todayMinutes: todayMinutes }
 }
 
 function finalizeDay(day, isToday, nowMs) {
@@ -189,4 +197,154 @@ function totalOf(days) {
     total.idlePct = Math.max(0, 100 - total.kbPct - total.mousePct)
   }
   return total
+}
+
+// Fetch the window-focus spans for the last `daysBack` days from the stock
+// currentwindow bucket (written by pulse-window-watcher). Focus changes are
+// rare, so this stays small even over weeks. Calls back with
+// { ok, bucketId, windows } where windows = [{startMs, durationS, app}]
+// sorted by start; empty app records are dropped.
+function fetchWindowEvents(awUrl, daysBack, callback) {
+  var base = normalizeBase(awUrl)
+  _getJson(base + "/api/0/buckets/", function(ok, buckets) {
+    if (!ok) {
+      callback({ ok: false, error: "unreachable" })
+      return
+    }
+    var bucketId = ""
+    for (var id in buckets) {
+      var bucket = buckets[id]
+      if (bucket && bucket.type === WINDOW_BUCKET_TYPE) {
+        bucketId = id
+        break
+      }
+    }
+    if (bucketId === "") {
+      callback({ ok: false, error: "noWindowBucket" })
+      return
+    }
+    var now = new Date()
+    var url = base + "/api/0/buckets/" + encodeURIComponent(bucketId)
+      + "/events?limit=-1&start=" + encodeURIComponent(isoUtc(midnightDaysAgo(now, daysBack - 1)))
+    _getJson(url, function(ok2, events) {
+      if (!ok2) {
+        callback({ ok: false, error: "unreachable" })
+        return
+      }
+      var spans = []
+      for (var i = 0; i < events.length; i++) {
+        var event = events[i]
+        var ts = Date.parse(String(event.timestamp))
+        var app = String((event.data || {}).app || "")
+        if (!isFinite(ts) || app === "") continue
+        spans.push({ startMs: ts, durationS: Number(event.duration) || 0, app: app })
+      }
+      spans.sort(function(a, b) { return a.startMs - b.startMs })
+      callback({ ok: true, bucketId: bucketId, windows: spans })
+    })
+  })
+}
+
+// Display label for an app class: shortened for readability, identity-safe
+// (the raw class stays the merge key and lives in the tooltip).
+//   "org.omarchy.agent"            -> "agent"
+//   "chrome-chatgpt.com__-Default" -> "chatgpt"   (Chrome/PWA classes)
+//   "google-chrome"                -> "chrome"    (vendor prefixes)
+//   "foot", "zen", "aw-qt"         -> unchanged
+function prettyApp(appClass) {
+  var name = String(appClass || "").trim()
+  if (name === "") return ""
+  if (name.indexOf("chrome-") === 0) {
+    name = name.slice("chrome-".length)
+    var cutoff = name.indexOf("__")
+    if (cutoff !== -1) name = name.slice(0, cutoff)
+    var tld = name.lastIndexOf(".")
+    if (tld !== -1) name = name.slice(0, tld)  // chatgpt.com -> chatgpt
+    return name
+  }
+  var vendors = ["google-", "microsoft-"]
+  for (var v = 0; v < vendors.length; v++) {
+    if (name.indexOf(vendors[v]) === 0) {
+      name = name.slice(vendors[v].length)
+      break
+    }
+  }
+  var dot = name.lastIndexOf(".")
+  if (dot !== -1 && dot + 1 < name.length) return name.slice(dot + 1)
+  return name
+}
+
+// Attribute per-minute input records to the app focused when the minute
+// started — a minute-granularity approximation: a minute with app-switching
+// inside it goes entirely to one app. Returns { apps, totalActive, maxShare }
+// with apps sorted by active minutes: apps under MIN_APP_SHARE_PCT fold into
+// "Other" (shown only when it clears the threshold too), the list is capped
+// at topN; each record carries pct (share of attributed active time), its
+// own keyboard/mouse split as float shares (kbShare/mouseShare, for the
+// diverging bars) and a shortened display label.
+//
+// `minutes` and `windows` may arrive in any order (the API returns events
+// newest-first) — both are sorted here before the two-pointer walk.
+function topApps(minutes, windows, topN) {
+  var sortedMinutes = minutes.slice().sort(function(a, b) { return a.tsMs - b.tsMs })
+  var sortedWindows = windows.slice().sort(function(a, b) { return a.startMs - b.startMs })
+  var byApp = {}
+  var winIndex = -1
+  for (var i = 0; i < sortedMinutes.length; i++) {
+    var minute = sortedMinutes[i]
+    while (winIndex + 1 < sortedWindows.length && sortedWindows[winIndex + 1].startMs <= minute.tsMs) winIndex++
+    var app = winIndex >= 0 && sortedWindows[winIndex].startMs <= minute.tsMs ? sortedWindows[winIndex].app : ""
+    if (app === "") continue
+    var record = byApp[app]
+    if (!record) {
+      record = byApp[app] = { app: app, label: prettyApp(app), kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
+    }
+    record.activeMinutes += 1
+    if (minute.kind === 1) record.kbMinutes += 1
+    else record.mouseMinutes += 1
+  }
+
+  var list = []
+  for (var key in byApp) list.push(byApp[key])
+  list.sort(function(a, b) { return b.activeMinutes - a.activeMinutes })
+
+  var totalActive = 0
+  for (var j = 0; j < list.length; j++) totalActive += list[j].activeMinutes
+
+  // Partition: apps at or above the threshold become rows (capped at topN);
+  // everything below the threshold — and everything beyond the cap — folds
+  // into "Other", which itself only shows when it clears the threshold.
+  var kept = []
+  var other = { app: "other", label: "other", kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
+  var maxShare = 0
+  for (var k = 0; k < list.length; k++) {
+    var rec = withPercentages(list[k], totalActive)
+    if (rec.pct >= MIN_APP_SHARE_PCT && kept.length < topN) {
+      kept.push(rec)
+    } else {
+      other.kbMinutes += rec.kbMinutes
+      other.mouseMinutes += rec.mouseMinutes
+      other.activeMinutes += rec.activeMinutes
+    }
+  }
+  if (other.activeMinutes > 0) {
+    var otherRec = withPercentages(other, totalActive)
+    if (otherRec.pct >= MIN_APP_SHARE_PCT) kept.push(otherRec)
+  }
+  for (var m = 0; m < kept.length; m++) {
+    maxShare = Math.max(maxShare, kept[m].kbTotalShare, kept[m].mouseTotalShare)
+  }
+  return { apps: kept, totalActive: totalActive, maxShare: maxShare }
+}
+
+function withPercentages(record, totalActive) {
+  record.pct = totalActive > 0 ? Math.round(record.activeMinutes * 100 / totalActive) : 0
+  // Internal split (tooltip: the app's own keyboard/mouse ratio)…
+  record.kbShare = record.activeMinutes > 0 ? record.kbMinutes * 100 / record.activeMinutes : 0
+  record.mouseShare = 100 - record.kbShare
+  // …and total-relative shares (the diverging bars: length = the app's
+  // keyboard / mouse minutes as a share of all attributed active minutes).
+  record.kbTotalShare = totalActive > 0 ? record.kbMinutes * 100 / totalActive : 0
+  record.mouseTotalShare = totalActive > 0 ? record.mouseMinutes * 100 / totalActive : 0
+  return record
 }

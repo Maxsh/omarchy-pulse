@@ -34,9 +34,15 @@ Panel {
   readonly property var stats: hostWidget ? hostWidget.activity : null
   readonly property var days: hostWidget && hostWidget.week ? hostWidget.week.days : []
   readonly property var total: hostWidget && hostWidget.week ? hostWidget.week.total : null
+  readonly property var apps: hostWidget && hostWidget.apps !== undefined ? hostWidget.apps : null
+  readonly property bool appsUnavailable: hostWidget && hostWidget.appsUnavailable === true
   readonly property string lastError: hostWidget ? hostWidget.lastError : ""
   readonly property string awUrl: hostWidget ? hostWidget.awUrl : ""
   readonly property bool hasData: stats !== null && stats.spanMinutes > 0
+
+  // Fixed column widths so the tornado's central axis aligns across rows.
+  readonly property int appsNameWidth: Commons.Style.space(76)
+  readonly property int appsPctWidth: Commons.Style.space(34)
 
   readonly property color kbColor: hostWidget ? hostWidget.kbColor : Commons.Color.accent
   readonly property color mouseColor: hostWidget ? hostWidget.mouseColor : Commons.Util.alpha(Commons.Color.accent, 0.45)
@@ -183,6 +189,110 @@ Panel {
     }
   }
 
+  // ---- Tornado row: app name on the left, then a central axis in the bar
+  // zone — keyboard grows left (bright), mouse grows right (mid); each side
+  // is its own 100% scale. Total share right-aligned; the hover tooltip
+  // carries the exact split and the raw app class.
+  component TornadoRow: Item {
+    id: tornadoRow
+    property var record: null
+    // Scale floor: with very little data the largest share can be tiny;
+    // capping the stretch at 25% keeps early-session bars from overstating.
+    property real maxShare: 100
+    readonly property bool hasData: record !== null && record.activeMinutes > 0
+    width: parent ? parent.width : 0
+    height: Commons.Style.space(14)
+
+    Text {
+      id: appName
+      textFormat: Text.PlainText
+      text: tornadoRow.record
+        ? (tornadoRow.record.app === "other" ? strings.t("pulse.other") : tornadoRow.record.label)
+        : ""
+      // Same size/style as the highlighted "today" day label in Last 7 days.
+      color: Commons.Color.popups.text
+      font.family: Commons.Style.font.family
+      font.pixelSize: Commons.Style.font.bodySmall
+      width: root.appsNameWidth
+      elide: Text.ElideRight
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+    }
+
+    Item {
+      id: barZone
+      height: parent.height
+      anchors.left: appName.right
+      anchors.leftMargin: Commons.Style.space(6)
+      anchors.right: pctText.left
+      anchors.rightMargin: Commons.Style.space(6)
+      anchors.verticalCenter: parent.verticalCenter
+
+      // The axis sits in the middle of the zone. The scale is data-driven:
+      // one common unit for both sides (comparisons stay honest), sized so
+      // the largest single bar reaches its panel edge — floored so sparse
+      // early data can't overstate.
+      readonly property real half: width / 2
+      readonly property real unit: half / Math.max(25, tornadoRow.maxShare)
+
+      Rectangle {
+        x: barZone.half - width / 2
+        width: 1
+        height: parent.height
+        color: Commons.Util.alpha(Commons.Color.accent, 0.35)
+      }
+
+      Rectangle {
+        x: barZone.half - width
+        width: barZone.unit * (tornadoRow.hasData ? tornadoRow.record.kbTotalShare : 0)
+        height: parent.height
+        // Rounded at the outer end, flat at the axis — matching the day
+        // bars' leading-edge treatment.
+        topLeftRadius: Commons.Style.space(2)
+        bottomLeftRadius: Commons.Style.space(2)
+        color: root.kbColor
+      }
+
+      Rectangle {
+        x: barZone.half
+        width: barZone.unit * (tornadoRow.hasData ? tornadoRow.record.mouseTotalShare : 0)
+        height: parent.height
+        topRightRadius: Commons.Style.space(2)
+        bottomRightRadius: Commons.Style.space(2)
+        color: root.mouseColor
+      }
+    }
+
+    Text {
+      id: pctText
+      textFormat: Text.PlainText
+      text: tornadoRow.hasData ? Commons.I18n.formatNumber(tornadoRow.record.pct) + "%" : "—"
+      color: Commons.Color.popups.text
+      font.family: Commons.Style.font.family
+      font.pixelSize: Commons.Style.font.body
+      width: root.appsPctWidth
+      horizontalAlignment: Text.AlignRight
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+    }
+
+    MouseArea {
+      id: hoverArea
+      anchors.fill: parent
+      hoverEnabled: true
+      acceptedButtons: Qt.NoButton
+    }
+
+    PanelToolTip {
+      visible: hoverArea.containsMouse
+      text: tornadoRow.hasData
+        ? (tornadoRow.record.app + " · "
+          + strings.t("pulse.keyboard") + " " + Commons.I18n.formatNumber(Math.round(tornadoRow.record.kbShare)) + "% · "
+          + strings.t("pulse.mouse") + " " + Commons.I18n.formatNumber(Math.round(tornadoRow.record.mouseShare)) + "%")
+        : strings.t("pulse.noDataDay")
+    }
+  }
+
   KeyboardPanel {
     id: panel
     anchorItem: root.anchorItem
@@ -263,6 +373,86 @@ Panel {
           swatchColor: root.idleColor
           labelText: strings.t("pulse.idle")
           valueText: root.hasData ? Commons.I18n.formatNumber(root.stats.idlePct) + "%" : "—"
+        }
+
+        // ---- Top apps (today): tornado rows — keyboard grows left, mouse
+        // grows right from the central axis; hover for the exact split. From
+        // the window watcher's spans joined onto the input minutes. Hidden
+        // until a window watcher has run at least once. The section header
+        // and the Keyboard|Mouse captions pack tightly; the rows keep the
+        // panel's regular rhythm.
+        Column {
+          width: parent ? parent.width : 0
+          spacing: Commons.Style.space(3)
+          visible: root.apps !== null || root.appsUnavailable
+
+          PanelSectionHeader {
+            text: strings.t("pulse.sectionApps")
+            font.family: Commons.Style.font.family
+            width: parent.width
+          }
+
+          Item {
+            id: appsCaptions
+            width: parent.width
+            height: keyCaption.implicitHeight
+
+            readonly property real zoneLeft: root.appsNameWidth + Commons.Style.space(6)
+            readonly property real zoneWidth: width - zoneLeft - (root.appsPctWidth + Commons.Style.space(6))
+            readonly property real axisX: zoneLeft + zoneWidth / 2
+
+            Text {
+              id: keyCaption
+              textFormat: Text.PlainText
+              text: strings.t("pulse.keyboard")
+              color: Commons.Color.muted
+              font.family: Commons.Style.font.family
+              font.pixelSize: Commons.Style.font.bodySmall
+              width: parent.zoneWidth / 2 - Commons.Style.space(4)
+              horizontalAlignment: Text.AlignRight
+              x: parent.zoneLeft
+              anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Rectangle {
+              x: parent.axisX - width / 2
+              width: 1
+              height: parent.height
+              color: Commons.Util.alpha(Commons.Color.accent, 0.35)
+            }
+
+            Text {
+              textFormat: Text.PlainText
+              text: strings.t("pulse.mouse")
+              color: Commons.Color.muted
+              font.family: Commons.Style.font.family
+              font.pixelSize: Commons.Style.font.bodySmall
+              x: parent.axisX + Commons.Style.space(4)
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
+        }
+
+        Repeater {
+          model: root.apps !== null ? root.apps.apps.length : 0
+
+          TornadoRow {
+            required property int modelData
+
+            record: root.apps.apps[modelData]
+            maxShare: root.apps.maxShare
+          }
+        }
+
+        Text {
+          width: parent ? parent.width : 0
+          visible: root.appsUnavailable && root.apps === null
+          wrapMode: Text.Wrap
+          textFormat: Text.PlainText
+          text: strings.t("pulse.appsHint")
+          color: Commons.Color.muted
+          font.family: Commons.Style.font.family
+          font.pixelSize: Commons.Style.font.bodySmall
         }
 
         // ---- Last 7 days: one stacked bar per day, hover for the split.

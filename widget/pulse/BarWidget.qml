@@ -19,7 +19,12 @@ BarWidget {
 
   property var activity: null
   property var week: null
+  property var apps: null
+  property bool appsUnavailable: false
   property string lastError: ""
+
+  property var todayMinutes: null
+  property var windowSpans: null
 
   readonly property string awUrl: setting("awUrl", PulseModel.DEFAULT_AW_URL)
   readonly property bool hasData: activity !== null && activity.spanMinutes > 0
@@ -97,7 +102,8 @@ BarWidget {
   }
 
   function refresh() {
-    // Light poll: today only. The popup fetches the whole week on open.
+    // Light poll: today only, plus the window join so Top apps stays live
+    // and self-heals once the window watcher creates its bucket.
     PulseModel.fetch(root.awUrl, 1, function(result) {
       if (!result.ok) {
         root.lastError = result.error
@@ -105,10 +111,29 @@ BarWidget {
       }
       root.lastError = ""
       root.activity = result.activity
+      root.todayMinutes = result.todayMinutes
+      rebuildApps()
+    })
+    fetchWindows()
+  }
+
+  function fetchWindows() {
+    PulseModel.fetchWindowEvents(root.awUrl, 1, function(result) {
+      if (!result.ok) {
+        if (result.error === "noWindowBucket") {
+          root.appsUnavailable = true
+          root.apps = null
+        }
+        return
+      }
+      root.appsUnavailable = false
+      root.windowSpans = result.windows
+      rebuildApps()
     })
   }
 
-  // Full week for the popup's day bars and total; also refreshes today.
+  // Full week for the popup's day bars and total; also refreshes today and
+  // the window-focus join for the Top apps section.
   function refreshWeek() {
     PulseModel.fetch(root.awUrl, 7, function(result) {
       if (!result.ok) {
@@ -118,7 +143,15 @@ BarWidget {
       root.lastError = ""
       root.activity = result.activity
       root.week = { days: result.days, total: result.total }
+      root.todayMinutes = result.todayMinutes
+      rebuildApps()
     })
+    fetchWindows()
+  }
+
+  function rebuildApps() {
+    if (root.todayMinutes === null || root.windowSpans === null) return
+    root.apps = PulseModel.topApps(root.todayMinutes, root.windowSpans, 5)
   }
 
   Loader {
