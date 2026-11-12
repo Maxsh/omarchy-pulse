@@ -10,6 +10,10 @@ var WINDOW_BUCKET_TYPE = "currentwindow"
 // (about a screen crossing on this scale).
 var MOVEMENT_THRESHOLD_PX = 400
 
+// Apps below this share of attributed active time fold into "Other";
+// "Other" itself only shows when it clears the same bar.
+var MIN_APP_SHARE_PCT = 3
+
 function normalizeBase(url) {
   var base = String(url || DEFAULT_AW_URL)
   while (base.charAt(base.length - 1) === "/") base = base.slice(0, -1)
@@ -272,9 +276,10 @@ function prettyApp(appClass) {
 
 // Attribute per-minute input records to the app focused when the minute
 // started — a minute-granularity approximation: a minute with app-switching
-// inside it goes entirely to one app. Returns { apps, totalActive } with
-// apps sorted by active minutes (top `topN`, the tail merged under app
-// "other"); each record carries pct (share of attributed active time), its
+// inside it goes entirely to one app. Returns { apps, totalActive, maxShare }
+// with apps sorted by active minutes: apps under MIN_APP_SHARE_PCT fold into
+// "Other" (shown only when it clears the threshold too), the list is capped
+// at topN; each record carries pct (share of attributed active time), its
 // own keyboard/mouse split as float shares (kbShare/mouseShare, for the
 // diverging bars) and a shortened display label.
 //
@@ -306,25 +311,30 @@ function topApps(minutes, windows, topN) {
   var totalActive = 0
   for (var j = 0; j < list.length; j++) totalActive += list[j].activeMinutes
 
-  var out = []
+  // Partition: apps at or above the threshold become rows (capped at topN);
+  // everything below the threshold — and everything beyond the cap — folds
+  // into "Other", which itself only shows when it clears the threshold.
+  var kept = []
+  var other = { app: "other", label: "other", kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
   var maxShare = 0
   for (var k = 0; k < list.length; k++) {
     var rec = withPercentages(list[k], totalActive)
-    maxShare = Math.max(maxShare, rec.kbTotalShare, rec.mouseTotalShare)
-    if (k < topN) out.push(rec)
-  }
-  if (list.length > topN) {
-    var other = { app: "other", label: "other", kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
-    for (var rest = topN; rest < list.length; rest++) {
-      other.kbMinutes += list[rest].kbMinutes
-      other.mouseMinutes += list[rest].mouseMinutes
-      other.activeMinutes += list[rest].activeMinutes
+    if (rec.pct >= MIN_APP_SHARE_PCT && kept.length < topN) {
+      kept.push(rec)
+    } else {
+      other.kbMinutes += rec.kbMinutes
+      other.mouseMinutes += rec.mouseMinutes
+      other.activeMinutes += rec.activeMinutes
     }
-    var otherRec = withPercentages(other, totalActive)
-    maxShare = Math.max(maxShare, otherRec.kbTotalShare, otherRec.mouseTotalShare)
-    out.push(otherRec)
   }
-  return { apps: out, totalActive: totalActive, maxShare: maxShare }
+  if (other.activeMinutes > 0) {
+    var otherRec = withPercentages(other, totalActive)
+    if (otherRec.pct >= MIN_APP_SHARE_PCT) kept.push(otherRec)
+  }
+  for (var m = 0; m < kept.length; m++) {
+    maxShare = Math.max(maxShare, kept[m].kbTotalShare, kept[m].mouseTotalShare)
+  }
+  return { apps: kept, totalActive: totalActive, maxShare: maxShare }
 }
 
 function withPercentages(record, totalActive) {
