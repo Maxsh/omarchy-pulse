@@ -206,9 +206,10 @@ Panel {
       text: tornadoRow.record
         ? (tornadoRow.record.app === "other" ? strings.t("pulse.other") : tornadoRow.record.label)
         : ""
+      // Same size/style as the highlighted "today" day label in Last 7 days.
       color: Commons.Color.popups.text
       font.family: Commons.Style.font.family
-      font.pixelSize: Commons.Style.font.body
+      font.pixelSize: Commons.Style.font.bodySmall
       width: root.appsNameWidth
       elide: Text.ElideRight
       anchors.left: parent.left

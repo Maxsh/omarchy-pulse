@@ -245,6 +245,7 @@ function fetchWindowEvents(awUrl, daysBack, callback) {
 // (the raw class stays the merge key and lives in the tooltip).
 //   "org.omarchy.agent"            -> "agent"
 //   "chrome-chatgpt.com__-Default" -> "chatgpt"   (Chrome/PWA classes)
+//   "google-chrome"                -> "chrome"    (vendor prefixes)
 //   "foot", "zen", "aw-qt"         -> unchanged
 function prettyApp(appClass) {
   var name = String(appClass || "").trim()
@@ -256,6 +257,13 @@ function prettyApp(appClass) {
     var tld = name.lastIndexOf(".")
     if (tld !== -1) name = name.slice(0, tld)  // chatgpt.com -> chatgpt
     return name
+  }
+  var vendors = ["google-", "microsoft-"]
+  for (var v = 0; v < vendors.length; v++) {
+    if (name.indexOf(vendors[v]) === 0) {
+      name = name.slice(vendors[v].length)
+      break
+    }
   }
   var dot = name.lastIndexOf(".")
   if (dot !== -1 && dot + 1 < name.length) return name.slice(dot + 1)
