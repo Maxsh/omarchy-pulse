@@ -1,0 +1,26 @@
+[project]
+name = "omarchy-pulse-watcher"
+version = "0.1.0"
+description = "Keyboard and mouse activity watcher for Omarchy: counts input events and ships them to ActivityWatch"
+requires-python = ">=3.11"
+dependencies = ["evdev>=1.7"]
+
+[project.scripts]
+pulse-watcher = "pulse_watcher.__main__:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pulse_watcher"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

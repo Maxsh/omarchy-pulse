@@ -1,0 +1,14 @@
+[Unit]
+Description=omarchy-pulse input activity watcher
+Documentation=https://github.com/Maxsh/omarchy-pulse
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+# Adjust if the repo lives elsewhere; the venv is created by `uv sync` in watcher/.
+ExecStart=%h/projects/omarchy-pulse/watcher/.venv/bin/pulse-watcher
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=graphical-session.target

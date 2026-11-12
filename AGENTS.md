@@ -45,8 +45,10 @@ docs/                    plan and design notes
 ## Setup (Phase 1; adjust as code lands)
 
 ```bash
-# dependencies
-omarchy pkg add python-evdev
+# watcher dependencies (uv-managed venv; no pacman python-evdev needed)
+cd watcher && uv sync
+
+# ActivityWatch (AUR)
 omarchy pkg aur add activitywatch-bin
 
 # the watcher needs raw input access
@@ -55,13 +57,15 @@ sudo usermod -aG input $USER   # re-login required
 # start ActivityWatch, then verify its API
 curl -s http://localhost:5600/api/0/buckets | head -c 400
 
-# run the watcher manually (from watcher/)
-python -m pulse_watcher --verbose
+# tests / linter / run (from watcher/)
+uv run pytest
+uv run ruff check .
+uv run pulse-watcher --verbose
 ```
 
 ## Conventions
 
-- **Python** (watcher): 3.11+, full type hints, `asyncio` event loop, `ruff` for lint+format, `pytest` for tests. Keep dependencies minimal: `evdev` + stdlib.
+- **Python** (watcher): 3.11+, full type hints, threaded device readers + a simple main loop (asyncio was rejected as unnecessary for blocking evdev reads), `ruff` for lint+format, `pytest` for tests, `uv` for env and deps. Keep dependencies minimal: `evdev` + stdlib.
 - **QML** (widget): match the style of Omarchy's built-in plugins (naming, imports, file layout). Run `qmllint` where available.
 - Keep chart data-shaping (binning, series building) in small pure JS functions in the QML so they can be exercised by `qmltestrunner`.
 - Commits: short imperative subjects; docs-only changes prefixed `docs:`.
@@ -83,4 +87,5 @@ python -m pulse_watcher --verbose
 
 - ActivityWatch REST API: https://docs.activitywatch.net/en/latest/api.html
 - aw-watcher-input (bucket schema to stay compatible with): https://github.com/ActivityWatch/aw-watcher-input
+- **Bucket schema (confirmed from source, 2026-11-12):** bucket id `aw-watcher-input_{hostname}`, type `os.hid.input`, event data keys `presses`, `clicks`, `deltaX`, `deltaY`, `scrollX`, `scrollY`. Never rename these keys — compatibility with ActivityWatch tooling depends on them.
 - Omarchy: https://omarchy.org/ — shell/plugin docs via the local skill (`~/.agents/skills/omarchy/`)
