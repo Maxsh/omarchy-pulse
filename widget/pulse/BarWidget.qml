@@ -68,8 +68,8 @@ BarWidget {
 
   // The widget paints a fixed-width row, so the open-panel indicator dot
   // takes the row's width rather than a rule across the whole slot.
-  readonly property real openPanelIndicatorWidth: Style.space(48)
-  readonly property real openPanelIndicatorHeight: Math.max(Style.space(10), Math.round(Style.bar.iconSlot * 0.55))
+  readonly property real openPanelIndicatorWidth: Commons.Style.space(48)
+  readonly property real openPanelIndicatorHeight: Math.max(Commons.Style.space(10), Math.round(Commons.Style.bar.iconSlot * 0.55))
 
   function injectPanel() {
     var target = panelLoader.item
@@ -124,7 +124,7 @@ BarWidget {
     text: ""
     labelVisible: false
     hasVisualContent: true
-    fixedWidth: Style.space(64)
+    fixedWidth: Commons.Style.space(64)
     tooltipText: root.tooltipText
     // A proportion to read at a glance, not a control to press: clicks open
     // the panel (the panel opening is the feedback), so the button itself
@@ -139,15 +139,15 @@ BarWidget {
     // The stacked split: idle fills the whole pill dimly; keyboard and mouse
     // stack over it from the left, so the empty tail reads as idle time.
     Item {
-      width: Style.space(48)
-      height: Style.space(10)
+      width: Commons.Style.space(48)
+      height: Commons.Style.space(10)
       anchors.centerIn: parent
 
       readonly property real unit: root.hasData ? width / 100.0 : 0
 
       Rectangle {
         anchors.fill: parent
-        radius: Style.space(2)
+        radius: Commons.Style.space(2)
         color: root.idleColor
       }
 
@@ -156,7 +156,7 @@ BarWidget {
         x: 0
         width: parent.unit * (root.hasData ? root.activity.kbPct : 0)
         height: parent.height
-        radius: Style.space(2)
+        radius: Commons.Style.space(2)
         color: root.kbColor
       }
 
@@ -165,7 +165,7 @@ BarWidget {
         x: kbSegment.width
         width: parent.unit * (root.hasData ? root.activity.mousePct : 0)
         height: parent.height
-        radius: Style.space(2)
+        radius: Commons.Style.space(2)
         color: root.mouseColor
       }
     }

@@ -58,9 +58,9 @@ Panel {
 
     Rectangle {
       id: swatch
-      width: Style.space(10)
-      height: Style.space(10)
-      radius: Style.space(2)
+      width: Commons.Style.space(10)
+      height: Commons.Style.space(10)
+      radius: Commons.Style.space(2)
       color: row.swatchColor
       anchors.left: parent.left
       anchors.verticalCenter: parent.verticalCenter
@@ -71,10 +71,10 @@ Panel {
       textFormat: Text.PlainText
       text: row.labelText
       color: Commons.Color.popups.text
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
+      font.family: Commons.Style.font.family
+      font.pixelSize: Commons.Style.font.body
       anchors.left: swatch.right
-      anchors.leftMargin: Style.space(8)
+      anchors.leftMargin: Commons.Style.space(8)
       anchors.verticalCenter: parent.verticalCenter
     }
 
@@ -83,8 +83,8 @@ Panel {
       textFormat: Text.PlainText
       text: row.valueText
       color: Commons.Color.popups.text
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
+      font.family: Commons.Style.font.family
+      font.pixelSize: Commons.Style.font.body
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       horizontalAlignment: Text.AlignRight
@@ -101,7 +101,7 @@ Panel {
     // popup follows wherever the widget is placed.
     centerOnBar: false
     focusTarget: panel.loadedContent
-    contentWidth: panel.fittedContentWidth(Style.space(280))
+    contentWidth: panel.fittedContentWidth(Commons.Style.space(280))
     contentHeight: panel.fittedContentHeight(panel.loadedContentHeight)
 
     content: PanelKeyCatcher {
@@ -111,14 +111,14 @@ Panel {
       Column {
         id: contentColumn
         anchors.fill: parent
-        spacing: Style.space(10)
+        spacing: Commons.Style.space(10)
 
         Text {
           textFormat: Text.PlainText
           text: strings.t("pulse.title")
           color: Commons.Color.popups.text
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
+          font.family: Commons.Style.font.family
+          font.pixelSize: Commons.Style.font.body
           font.weight: Font.DemiBold
         }
 
@@ -128,19 +128,19 @@ Panel {
             ? strings.t("pulse.since").arg(root.formatTime(root.stats.firstTsMs))
             : strings.t("pulse.subtitle")
           color: Commons.Color.muted
-          font.family: Style.font.family
-          font.pixelSize: Style.font.bodySmall
+          font.family: Commons.Style.font.family
+          font.pixelSize: Commons.Style.font.bodySmall
         }
 
         // Large stacked bar: idle fills the pill, keyboard and mouse stack
         // over it from the left — the same proportions as the bar widget.
         Item {
           width: parent ? parent.width : 0
-          height: Style.space(14)
+          height: Commons.Style.space(14)
 
           Rectangle {
             anchors.fill: parent
-            radius: Style.space(3)
+            radius: Commons.Style.space(3)
             color: root.idleColor
           }
 
@@ -149,7 +149,7 @@ Panel {
             x: 0
             width: parent.width * (root.hasData ? root.stats.kbPct : 0) / 100.0
             height: parent.height
-            radius: Style.space(3)
+            radius: Commons.Style.space(3)
             color: root.kbColor
           }
 
@@ -158,7 +158,7 @@ Panel {
             x: bigKb.width
             width: parent.width * (root.hasData ? root.stats.mousePct : 0) / 100.0
             height: parent.height
-            radius: Style.space(3)
+            radius: Commons.Style.space(3)
             color: root.mouseColor
           }
         }
@@ -190,8 +190,8 @@ Panel {
             ? strings.t("pulse.error.noInputBucket")
             : strings.t("pulse.error.unreachable").arg(root.awUrl)
           color: Commons.Color.urgent
-          font.family: Style.font.family
-          font.pixelSize: Style.font.bodySmall
+          font.family: Commons.Style.font.family
+          font.pixelSize: Commons.Style.font.bodySmall
         }
       }
     }

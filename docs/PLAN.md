@@ -104,11 +104,11 @@ Repo, README, AGENTS.md, this plan.
 - Implemented: device discovery + classification; per-minute counter; AW client (create bucket + POST, retry queue); systemd user unit; TOML config + CLI; logging without key content; 27 unit/integration tests.
 - **Acceptance:** met — live on this machine: 6 devices read (built-in keyboard, touchpad, mouse, hotkey pads), per-minute events visible in AW within ~60 s while typing/mousing (e.g. `presses=121` in one minute), watcher survives AW starting later via its retry queue.
 
-### Phase 2 — bar widget MVP — **code complete (2026-11-12); visual verification pending**
-- Shipped: `maxsh.pulse` bar widget — stacked mini-bar (keyboard/mouse/idle percentages of the session), percentage tooltip, summary popup with swatch rows; plugin-local i18n (en.json); `install/plugin.sh`; `install/aw-server.service`.
-- Verified: full data pipeline live (watcher → AW → QML) with real values; JS analysis pipeline validated in an isolated quickshell run (28/4/68% over a 47-minute session).
-- Field findings fixed: `evdev.list_devices()` hides unreadable devices; `qs.Commons` import semantics for third-party plugins; imperative tooltip built before the i18n catalog loaded (made reactive); raw `%1` plural row (missing tn+arg).
-- **Remaining:** visual confirmation on the live bar (blocked by an unrelated lock-screen pause during the session); overlap with a third-party panel that ignores the popout protocol is that plugin's bug — ours follows `KeyboardPanel`/`Bar.requestPopout` correctly.
+### Phase 2 — bar widget MVP — **done (2026-11-12)**
+- Shipped: `maxsh.pulse` bar widget — stacked mini-bar (keyboard/mouse/idle percentages of the session), percentage tooltip, summary popup with swatch rows; plugin-local i18n (en.json); panel IPC (`omarchy-shell maxsh.pulse toggle`); `install/plugin.sh`; `install/aw-server.service`.
+- Verified live: data pipeline (watcher → AW → QML) with real values; JS analysis in an isolated quickshell run (28/4/68% over a 47-minute session); bar mini-bar and popup confirmed by screenshot after a clean shell restart.
+- Field findings fixed: `evdev.list_devices()` hides unreadable devices; `qs.Commons` import semantics for third-party plugins (singletons need the qualified `Commons.X` form — bare `Style` fails even though it works for first-party plugins); imperative tooltip built before the i18n catalog loaded (made reactive); raw `%1` plural row (missing tn+arg).
+- Note: the shell defers/loses hot reloads while the session is locked — always verify widget changes after `omarchy restart shell` on an unlocked session.
 
 ### Phase 3 — chart popup
 - `KeyboardPanel` with Day/Week toggle and 3-series `Canvas` chart; hover readout; theme colors; motion per Omarchy guidelines.
