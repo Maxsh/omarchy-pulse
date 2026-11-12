@@ -246,6 +246,10 @@ Panel {
         x: barZone.half - width
         width: barZone.unit * (tornadoRow.hasData ? tornadoRow.record.kbTotalShare : 0)
         height: parent.height
+        // Rounded at the outer end, flat at the axis — matching the day
+        // bars' leading-edge treatment.
+        topLeftRadius: Commons.Style.space(2)
+        bottomLeftRadius: Commons.Style.space(2)
         color: root.kbColor
       }
 
@@ -253,6 +257,8 @@ Panel {
         x: barZone.half
         width: barZone.unit * (tornadoRow.hasData ? tornadoRow.record.mouseTotalShare : 0)
         height: parent.height
+        topRightRadius: Commons.Style.space(2)
+        bottomRightRadius: Commons.Style.space(2)
         color: root.mouseColor
       }
     }
