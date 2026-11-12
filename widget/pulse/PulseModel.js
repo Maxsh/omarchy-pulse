@@ -241,12 +241,34 @@ function fetchWindowEvents(awUrl, daysBack, callback) {
   })
 }
 
+// Display label for an app class: shortened for readability, identity-safe
+// (the raw class stays the merge key and lives in the tooltip).
+//   "org.omarchy.agent"            -> "agent"
+//   "chrome-chatgpt.com__-Default" -> "chatgpt"   (Chrome/PWA classes)
+//   "foot", "zen", "aw-qt"         -> unchanged
+function prettyApp(appClass) {
+  var name = String(appClass || "").trim()
+  if (name === "") return ""
+  if (name.indexOf("chrome-") === 0) {
+    name = name.slice("chrome-".length)
+    var cutoff = name.indexOf("__")
+    if (cutoff !== -1) name = name.slice(0, cutoff)
+    var tld = name.lastIndexOf(".")
+    if (tld !== -1) name = name.slice(0, tld)  // chatgpt.com -> chatgpt
+    return name
+  }
+  var dot = name.lastIndexOf(".")
+  if (dot !== -1 && dot + 1 < name.length) return name.slice(dot + 1)
+  return name
+}
+
 // Attribute per-minute input records to the app focused when the minute
 // started — a minute-granularity approximation: a minute with app-switching
 // inside it goes entirely to one app. Returns { apps, totalActive } with
 // apps sorted by active minutes (top `topN`, the tail merged under app
-// "other"); each record carries pct (share of attributed active time) and
-// the app's own keyboard/mouse split (kbPct/mousePct).
+// "other"); each record carries pct (share of attributed active time), its
+// own keyboard/mouse split as float shares (kbShare/mouseShare, for the
+// diverging bars) and a shortened display label.
 //
 // `minutes` and `windows` may arrive in any order (the API returns events
 // newest-first) — both are sorted here before the two-pointer walk.
@@ -262,7 +284,7 @@ function topApps(minutes, windows, topN) {
     if (app === "") continue
     var record = byApp[app]
     if (!record) {
-      record = byApp[app] = { app: app, kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
+      record = byApp[app] = { app: app, label: prettyApp(app), kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
     }
     record.activeMinutes += 1
     if (minute.kind === 1) record.kbMinutes += 1
@@ -294,7 +316,12 @@ function topApps(minutes, windows, topN) {
 
 function withPercentages(record, totalActive) {
   record.pct = totalActive > 0 ? Math.round(record.activeMinutes * 100 / totalActive) : 0
-  record.kbPct = record.activeMinutes > 0 ? Math.round(record.kbMinutes * 100 / record.activeMinutes) : 0
-  record.mousePct = Math.max(0, 100 - record.kbPct)
+  // Internal split (tooltip: the app's own keyboard/mouse ratio)…
+  record.kbShare = record.activeMinutes > 0 ? record.kbMinutes * 100 / record.activeMinutes : 0
+  record.mouseShare = 100 - record.kbShare
+  // …and total-relative shares (the diverging bars: length = the app's
+  // keyboard / mouse minutes as a share of all attributed active minutes).
+  record.kbTotalShare = totalActive > 0 ? record.kbMinutes * 100 / totalActive : 0
+  record.mouseTotalShare = totalActive > 0 ? record.mouseMinutes * 100 / totalActive : 0
   return record
 }
