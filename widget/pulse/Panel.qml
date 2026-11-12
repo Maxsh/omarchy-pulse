@@ -378,8 +378,9 @@ Panel {
         // ---- Top apps (today): tornado rows — keyboard grows left, mouse
         // grows right from the central axis; hover for the exact split. From
         // the window watcher's spans joined onto the input minutes. Hidden
-        // until a window watcher has run at least once. Grouped in a tight
-        // inner column so the header, captions and bars read as one block.
+        // until a window watcher has run at least once. The section header
+        // and the Keyboard|Mouse captions pack tightly; the rows keep the
+        // panel's regular rhythm.
         Column {
           width: parent ? parent.width : 0
           spacing: Commons.Style.space(3)
@@ -392,9 +393,9 @@ Panel {
           }
 
           Item {
+            id: appsCaptions
             width: parent.width
             height: keyCaption.implicitHeight
-            visible: root.apps !== null
 
             readonly property real zoneLeft: root.appsNameWidth + Commons.Style.space(6)
             readonly property real zoneWidth: width - zoneLeft - (root.appsPctWidth + Commons.Style.space(6))
@@ -430,16 +431,16 @@ Panel {
               anchors.verticalCenter: parent.verticalCenter
             }
           }
+        }
 
-          Repeater {
-            model: root.apps !== null ? root.apps.apps.length : 0
+        Repeater {
+          model: root.apps !== null ? root.apps.apps.length : 0
 
-            TornadoRow {
-              required property int modelData
+          TornadoRow {
+            required property int modelData
 
-              record: root.apps.apps[modelData]
-              maxShare: root.apps.maxShare
-            }
+            record: root.apps.apps[modelData]
+            maxShare: root.apps.maxShare
           }
         }
 
