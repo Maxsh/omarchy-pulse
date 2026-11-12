@@ -247,13 +247,18 @@ function fetchWindowEvents(awUrl, daysBack, callback) {
 // apps sorted by active minutes (top `topN`, the tail merged under app
 // "other"); each record carries pct (share of attributed active time) and
 // the app's own keyboard/mouse split (kbPct/mousePct).
+//
+// `minutes` and `windows` may arrive in any order (the API returns events
+// newest-first) — both are sorted here before the two-pointer walk.
 function topApps(minutes, windows, topN) {
+  var sortedMinutes = minutes.slice().sort(function(a, b) { return a.tsMs - b.tsMs })
+  var sortedWindows = windows.slice().sort(function(a, b) { return a.startMs - b.startMs })
   var byApp = {}
   var winIndex = -1
-  for (var i = 0; i < minutes.length; i++) {
-    var minute = minutes[i]
-    while (winIndex + 1 < windows.length && windows[winIndex + 1].startMs <= minute.tsMs) winIndex++
-    var app = winIndex >= 0 && windows[winIndex].startMs <= minute.tsMs ? windows[winIndex].app : ""
+  for (var i = 0; i < sortedMinutes.length; i++) {
+    var minute = sortedMinutes[i]
+    while (winIndex + 1 < sortedWindows.length && sortedWindows[winIndex + 1].startMs <= minute.tsMs) winIndex++
+    var app = winIndex >= 0 && sortedWindows[winIndex].startMs <= minute.tsMs ? sortedWindows[winIndex].app : ""
     if (app === "") continue
     var record = byApp[app]
     if (!record) {
