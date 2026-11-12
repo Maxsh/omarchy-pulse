@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+
+# Local data / secrets
+*.sqlite
+*.db
+.env
+
+# Editors / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
