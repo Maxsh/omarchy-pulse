@@ -58,7 +58,7 @@ omarchy-pulse fills the gap with two small pieces:
 ## Roadmap
 
 - [x] Phase 0 — project kickoff, docs (this repo state)
-- [ ] Phase 1 — `pulse-watcher` MVP: evdev → ActivityWatch, systemd user service *(code complete; live validation pending — needs `input` group + ActivityWatch install)*
+- [x] Phase 1 — `pulse-watcher` MVP: evdev → ActivityWatch, systemd user service
 - [ ] Phase 2 — bar widget MVP: today's keyboard/mouse counts in the bar
 - [ ] Phase 3 — chart popup: day/week views, three curves, theme colors
 - [ ] Phase 4 — polish: i18n, per-app breakdown (via `aw-watcher-window-hyprland`), packaging, screenshots

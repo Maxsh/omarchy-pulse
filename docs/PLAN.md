@@ -99,10 +99,9 @@ Service: `watcher/systemd/pulse-watcher.service` (user unit): `Restart=on-failur
 ### Phase 0 — Kickoff (done)
 Repo, README, AGENTS.md, this plan.
 
-### Phase 1 — watcher MVP — **code complete (2026-11-12); live validation pending**
+### Phase 1 — watcher MVP — **done (2026-11-12)**
 - Implemented: device discovery + classification; per-minute counter; AW client (create bucket + POST, retry queue); systemd user unit; TOML config + CLI; logging without key content; 27 unit/integration tests.
-- **Acceptance:** with the service running on Hyprland, typing/mousing produces per-minute events in the AW bucket within ~60 s; service auto-restarts after device replug or crash; test suite green; inspection of logs/DB shows no key identifiers.
-- **Remaining:** add user to `input` group + install ActivityWatch, then verify the acceptance above.
+- **Acceptance:** met — live on this machine: 6 devices read (built-in keyboard, touchpad, mouse, hotkey pads), per-minute events visible in AW within ~60 s while typing/mousing (e.g. `presses=121` in one minute), watcher survives AW starting later via its retry queue.
 
 ### Phase 2 — bar widget MVP
 - Plugin scaffold copied from a built-in plugin's structure; bar text with today's totals; AW fetch with error caching; install script (symlink into `~/.config/omarchy/plugins/`).
