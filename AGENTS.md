@@ -31,6 +31,7 @@ docs/                    plan and design notes
    - Keep network access explicit and local-only (`http://localhost:5600`), with timeouts and response-size caps.
    - Motion via Omarchy kit (`qs.Ui` components) or `Style.duration(ms)` / `Style.easeOut` from `qs.Commons`; no bare durations, no ease-in, ≤300 ms.
    - Ship strings as flat JSON catalogs in `i18n/` read via `Commons.Translations`; format numbers with `Commons.I18n.formatNumber`. English-only at first is fine.
+   - `KeyboardPanel` sizes its card from the content root's `implicitHeight` — set it (`implicitHeight: contentColumn.implicitHeight`), or the card collapses and the content overflows below it. Note also: singleton access must be qualified (`Commons.Style`, not `Style`) in third-party plugins, and the shell defers plugin hot-reloads while the session is locked — verify changes with `omarchy restart shell` unlocked.
 4. **Theme-aware, never hardcoded colors.** Use the palette exposed by `qs.Commons` — check a built-in plugin under `/usr/share/omarchy/shell/plugins/` for the exact API of the installed Omarchy version.
 
 ## Environment notes (this machine)

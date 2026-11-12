@@ -156,7 +156,8 @@ BarWidget {
         x: 0
         width: parent.unit * (root.hasData ? root.activity.kbPct : 0)
         height: parent.height
-        radius: Commons.Style.space(2)
+        topLeftRadius: Commons.Style.space(2)
+        bottomLeftRadius: Commons.Style.space(2)
         color: root.kbColor
       }
 
@@ -165,7 +166,6 @@ BarWidget {
         x: kbSegment.width
         width: parent.unit * (root.hasData ? root.activity.mousePct : 0)
         height: parent.height
-        radius: Commons.Style.space(2)
         color: root.mouseColor
       }
     }

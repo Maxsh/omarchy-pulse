@@ -106,6 +106,10 @@ Panel {
 
     content: PanelKeyCatcher {
       anchors.fill: parent
+      // The card sizes itself from the content's implicitHeight; without it
+      // the card collapses to nothing and the column overflows below it.
+      implicitHeight: contentColumn.implicitHeight
+      clip: true
       onCloseRequested: root.close()
 
       Column {
@@ -149,7 +153,10 @@ Panel {
             x: 0
             width: parent.width * (root.hasData ? root.stats.kbPct : 0) / 100.0
             height: parent.height
-            radius: Commons.Style.space(3)
+            // Only the pill's leading edge is rounded; inner seams stay
+            // square so the three segments read as one bar.
+            topLeftRadius: Commons.Style.space(3)
+            bottomLeftRadius: Commons.Style.space(3)
             color: root.kbColor
           }
 
@@ -158,7 +165,6 @@ Panel {
             x: bigKb.width
             width: parent.width * (root.hasData ? root.stats.mousePct : 0) / 100.0
             height: parent.height
-            radius: Commons.Style.space(3)
             color: root.mouseColor
           }
         }
