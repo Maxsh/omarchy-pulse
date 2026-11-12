@@ -34,6 +34,8 @@ Panel {
   readonly property var stats: hostWidget ? hostWidget.activity : null
   readonly property var days: hostWidget && hostWidget.week ? hostWidget.week.days : []
   readonly property var total: hostWidget && hostWidget.week ? hostWidget.week.total : null
+  readonly property var apps: hostWidget && hostWidget.apps !== undefined ? hostWidget.apps : null
+  readonly property bool appsUnavailable: hostWidget && hostWidget.appsUnavailable === true
   readonly property string lastError: hostWidget ? hostWidget.lastError : ""
   readonly property string awUrl: hostWidget ? hostWidget.awUrl : ""
   readonly property bool hasData: stats !== null && stats.spanMinutes > 0
@@ -183,6 +185,89 @@ Panel {
     }
   }
 
+  // ---- Top-apps row: app name, share-of-active bar split by the app's own
+  // keyboard/mouse ratio, right-aligned percentage, hover tooltip with the
+  // app's keyboard/mouse split.
+  component AppRow: Item {
+    id: appRow
+    property var record: null
+    readonly property bool hasData: record !== null && record.activeMinutes > 0
+    width: parent ? parent.width : 0
+    height: Commons.Style.space(14)
+
+    Text {
+      id: appName
+      textFormat: Text.PlainText
+      text: appRow.record
+        ? (appRow.record.app === "other" ? strings.t("pulse.other") : appRow.record.app)
+        : ""
+      color: Commons.Color.popups.text
+      font.family: Commons.Style.font.family
+      font.pixelSize: Commons.Style.font.body
+      width: Math.min(implicitWidth, Commons.Style.space(110))
+      elide: Text.ElideRight
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+    }
+
+    Item {
+      id: barArea
+      height: Commons.Style.space(10)
+      anchors.left: appName.right
+      anchors.leftMargin: Commons.Style.space(8)
+      anchors.right: pctText.left
+      anchors.rightMargin: Commons.Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+
+      readonly property real unit: width / 100.0
+
+      Rectangle {
+        id: appKbSeg
+        x: 0
+        width: barArea.unit * (appRow.hasData ? appRow.record.pct : 0)
+          * (appRow.hasData ? appRow.record.kbPct : 0) / 100.0
+        height: parent.height
+        topLeftRadius: Commons.Style.space(2)
+        bottomLeftRadius: Commons.Style.space(2)
+        color: root.kbColor
+      }
+
+      Rectangle {
+        x: appKbSeg.width
+        width: barArea.unit * (appRow.hasData ? appRow.record.pct : 0)
+          * (appRow.hasData ? appRow.record.mousePct : 0) / 100.0
+        height: parent.height
+        color: root.mouseColor
+      }
+    }
+
+    Text {
+      id: pctText
+      textFormat: Text.PlainText
+      text: appRow.hasData ? Commons.I18n.formatNumber(appRow.record.pct) + "%" : "—"
+      color: Commons.Color.popups.text
+      font.family: Commons.Style.font.family
+      font.pixelSize: Commons.Style.font.body
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+    }
+
+    MouseArea {
+      id: hoverArea
+      anchors.fill: parent
+      hoverEnabled: true
+      acceptedButtons: Qt.NoButton
+    }
+
+    PanelToolTip {
+      visible: hoverArea.containsMouse
+      text: appRow.hasData
+        ? strings.t("pulse.keyboard") + " " + Commons.I18n.formatNumber(appRow.record.kbPct) + "% · "
+          + strings.t("pulse.mouse") + " " + Commons.I18n.formatNumber(appRow.record.mousePct) + "%"
+        : strings.t("pulse.noDataDay")
+    }
+  }
+
   KeyboardPanel {
     id: panel
     anchorItem: root.anchorItem
@@ -263,6 +348,36 @@ Panel {
           swatchColor: root.idleColor
           labelText: strings.t("pulse.idle")
           valueText: root.hasData ? Commons.I18n.formatNumber(root.stats.idlePct) + "%" : "—"
+        }
+
+        // ---- Top apps (today): keyboard/mouse share per focused app, from
+        // the window watcher's spans joined onto the input minutes. Hidden
+        // until a window watcher has run at least once.
+        PanelSectionHeader {
+          text: strings.t("pulse.sectionApps")
+          font.family: Commons.Style.font.family
+          visible: root.apps !== null || root.appsUnavailable
+        }
+
+        Repeater {
+          model: root.apps !== null ? root.apps.apps.length : 0
+
+          AppRow {
+            required property int modelData
+
+            record: root.apps.apps[modelData]
+          }
+        }
+
+        Text {
+          width: parent ? parent.width : 0
+          visible: root.appsUnavailable && root.apps === null
+          wrapMode: Text.Wrap
+          textFormat: Text.PlainText
+          text: strings.t("pulse.appsHint")
+          color: Commons.Color.muted
+          font.family: Commons.Style.font.family
+          font.pixelSize: Commons.Style.font.bodySmall
         }
 
         // ---- Last 7 days: one stacked bar per day, hover for the split.
