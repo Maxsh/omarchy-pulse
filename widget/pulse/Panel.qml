@@ -41,7 +41,7 @@ Panel {
   readonly property bool hasData: stats !== null && stats.spanMinutes > 0
 
   // Fixed column widths so the tornado's central axis aligns across rows.
-  readonly property int appsNameWidth: Commons.Style.space(96)
+  readonly property int appsNameWidth: Commons.Style.space(88)
   readonly property int appsPctWidth: Commons.Style.space(36)
 
   readonly property color kbColor: hostWidget ? hostWidget.kbColor : Commons.Color.accent
@@ -196,6 +196,9 @@ Panel {
   component TornadoRow: Item {
     id: tornadoRow
     property var record: null
+    // Scale floor: with very little data the largest share can be tiny;
+    // capping the stretch at 25% keeps early-session bars from overstating.
+    property real maxShare: 100
     readonly property bool hasData: record !== null && record.activeMinutes > 0
     width: parent ? parent.width : 0
     height: Commons.Style.space(14)
@@ -225,10 +228,12 @@ Panel {
       anchors.rightMargin: Commons.Style.space(8)
       anchors.verticalCenter: parent.verticalCenter
 
-      // The axis sits in the middle of the zone; each side is its own
-      // 100% scale, so an all-typing day fills the left half completely.
+      // The axis sits in the middle of the zone. The scale is data-driven:
+      // one common unit for both sides (comparisons stay honest), sized so
+      // the largest single bar reaches its panel edge — floored so sparse
+      // early data can't overstate.
       readonly property real half: width / 2
-      readonly property real unit: half / 100.0
+      readonly property real unit: half / Math.max(25, tornadoRow.maxShare)
 
       Rectangle {
         x: barZone.half - width / 2
@@ -421,6 +426,7 @@ Panel {
             required property int modelData
 
             record: root.apps.apps[modelData]
+            maxShare: root.apps.maxShare
           }
         }
 

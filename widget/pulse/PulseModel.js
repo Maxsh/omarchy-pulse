@@ -307,19 +307,24 @@ function topApps(minutes, windows, topN) {
   for (var j = 0; j < list.length; j++) totalActive += list[j].activeMinutes
 
   var out = []
-  for (var k = 0; k < list.length && k < topN; k++) {
-    out.push(withPercentages(list[k], totalActive))
+  var maxShare = 0
+  for (var k = 0; k < list.length; k++) {
+    var rec = withPercentages(list[k], totalActive)
+    maxShare = Math.max(maxShare, rec.kbTotalShare, rec.mouseTotalShare)
+    if (k < topN) out.push(rec)
   }
   if (list.length > topN) {
-    var other = { app: "other", kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
+    var other = { app: "other", label: "other", kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
     for (var rest = topN; rest < list.length; rest++) {
       other.kbMinutes += list[rest].kbMinutes
       other.mouseMinutes += list[rest].mouseMinutes
       other.activeMinutes += list[rest].activeMinutes
     }
-    out.push(withPercentages(other, totalActive))
+    var otherRec = withPercentages(other, totalActive)
+    maxShare = Math.max(maxShare, otherRec.kbTotalShare, otherRec.mouseTotalShare)
+    out.push(otherRec)
   }
-  return { apps: out, totalActive: totalActive }
+  return { apps: out, totalActive: totalActive, maxShare: maxShare }
 }
 
 function withPercentages(record, totalActive) {
