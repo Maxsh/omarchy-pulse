@@ -1,0 +1,16 @@
+[Unit]
+Description=ActivityWatch server (aw-server)
+Documentation=https://activitywatch.net
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+# The AUR package activitywatch-bin ships no systemd unit for the Python server
+# (only an aw-server-rust template under /opt), so we provide our own.
+# Data lives in ~/.local/share/activitywatch/.
+ExecStart=/usr/bin/aw-server
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=graphical-session.target

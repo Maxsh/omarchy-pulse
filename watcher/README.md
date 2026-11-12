@@ -25,10 +25,14 @@ sudo usermod -aG input $USER
 ## Install as a service
 
 ```bash
-mkdir -p ~/.config/systemd/user
-cp systemd/pulse-watcher.service ~/.config/systemd/user/   # adjust ExecStart if the repo lives elsewhere
+# ActivityWatch server (from the repo root — the AUR package ships no unit for it)
+cp install/aw-server.service ~/.config/systemd/user/
+
+# the watcher (adjust ExecStart if this repo lives elsewhere)
+cp watcher/systemd/pulse-watcher.service ~/.config/systemd/user/
+
 systemctl --user daemon-reload
-systemctl --user enable --now pulse-watcher.service
+systemctl --user enable --now aw-server.service pulse-watcher.service
 journalctl --user -u pulse-watcher -f
 ```
 

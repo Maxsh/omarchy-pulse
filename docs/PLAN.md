@@ -124,7 +124,7 @@ Repo, README, AGENTS.md, this plan.
 | AW API details differ (query params, auth) | Confirm against installed AW version in Phase 1; pin behavior; localhost-only. |
 | QML Canvas perf | Repaint only on new data (60 s) and on view toggle; never on an animation timer. |
 | Double counting with multiple keyboards/mice | Summing across devices is the intended semantic (an event is an event); document it. |
-| activitywatch-bin autostart method varies (desktop entry vs user service) | Verify on this machine in Phase 1; document the chosen method in the README install section. |
+| activitywatch-bin autostart method varies (desktop entry vs user service) | **Resolved:** the AUR package ships no systemd unit for the Python server (only an `aw-server-rust` template under `/opt` and an XDG autostart for the tray) — `install/aw-server.service` provides a proper user unit. |
 
 ## 8. Open questions
 
