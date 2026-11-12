@@ -1,11 +1,14 @@
 {
   "pulse.title": "Pulse",
-  "pulse.subtitle": "Today so far",
   "pulse.since": "Since %1",
+  "pulse.noData": "No data yet — waiting for pulse-watcher",
   "pulse.keyboard": "Keyboard",
   "pulse.mouse": "Mouse",
   "pulse.idle": "Idle",
-  "pulse.noData": "No data yet — waiting for pulse-watcher",
+  "pulse.sectionWeek": "Last 7 days",
+  "pulse.sectionTotal": "Total",
+  "pulse.refresh": "Refresh",
+  "pulse.noDataDay": "No data",
   "pulse.error.unreachable": "ActivityWatch is not reachable at %1",
   "pulse.error.noInputBucket": "No ActivityWatch input bucket — is pulse-watcher running?"
 }

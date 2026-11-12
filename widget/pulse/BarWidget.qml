@@ -18,6 +18,7 @@ BarWidget {
   moduleName: "maxsh.pulse"
 
   property var activity: null
+  property var week: null
   property string lastError: ""
 
   readonly property string awUrl: setting("awUrl", PulseModel.DEFAULT_AW_URL)
@@ -96,13 +97,27 @@ BarWidget {
   }
 
   function refresh() {
-    PulseModel.fetchToday(root.awUrl, function(result) {
+    // Light poll: today only. The popup fetches the whole week on open.
+    PulseModel.fetch(root.awUrl, 1, function(result) {
       if (!result.ok) {
         root.lastError = result.error
         return
       }
       root.lastError = ""
       root.activity = result.activity
+    })
+  }
+
+  // Full week for the popup's day bars and total; also refreshes today.
+  function refreshWeek() {
+    PulseModel.fetch(root.awUrl, 7, function(result) {
+      if (!result.ok) {
+        root.lastError = result.error
+        return
+      }
+      root.lastError = ""
+      root.activity = result.activity
+      root.week = { days: result.days, total: result.total }
     })
   }
 

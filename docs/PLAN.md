@@ -18,7 +18,7 @@ Give an Omarchy user a live, local view of their day: how active they were, and 
 | D4 | Widget ↔ AW | Direct HTTP from QML to `http://localhost:5600` | No helper process to run. Fallback: tiny Python helper printing JSON if QML's XHR gets in the way. |
 | D5 | AFK/idle | Implicit: empty minutes are not emitted | Absence of an event means no input in that minute — enough for activity curves. An explicit AFK state (e.g. via hypridle) can be added later if "screen-on but idle" semantics are wanted. |
 | D6 | Bucket schema | Stock-compatible: bucket id `aw-watcher-input_{hostname}`, type `os.hid.input`, data keys `presses`, `clicks`, `deltaX`, `deltaY`, `scrollX`, `scrollY` | Confirmed from aw-watcher-input/aw-watcher-afk sources (Q1 resolved). Deliberate deviation: per-minute events instead of 5s heartbeats — identical totals for AW tooling, ~12× fewer events, light payload for the widget. |
-| D7 | Chart granularity | Day = 24 hourly bins; Week = 7 daily bins | Readable at panel size; weekly hourly (168 points) only if it looks good later. |
+| D7 | Popup design | **Horizontal stacked bars**: today's percentages as rows on top; one stacked bar per day for the last 7 days (hover tooltip with exact keyboard/mouse/idle percentages); a total bar for the week; refresh action in the header | Superseded the original canvas-curves idea after the first live design pass — per-day bars answer "how did my split look each day" at a glance, and reuse the mini-bar visual language. |
 | D8 | Values shown | **Relative only**: keyboard/mouse/idle as percentages of the session so far (first input minute → now); no absolute counts in bar or panel | Product direction from first field use: absolute click/press counts don't answer "how did I spend my time". Classification per minute by dominant input (presses vs clicks/scroll/movement). Session span instead of since-midnight so night sleep doesn't dilute the split. |
 
 ## 3. Architecture
@@ -110,9 +110,11 @@ Repo, README, AGENTS.md, this plan.
 - Field findings fixed: `evdev.list_devices()` hides unreadable devices; `qs.Commons` import semantics for third-party plugins (singletons need the qualified `Commons.X` form — bare `Style` fails even though it works for first-party plugins); imperative tooltip built before the i18n catalog loaded (made reactive); raw `%1` plural row (missing tn+arg).
 - Note: the shell defers/loses hot reloads while the session is locked — always verify widget changes after `omarchy restart shell` on an unlocked session.
 
-### Phase 3 — chart popup
-- `KeyboardPanel` with Day/Week toggle and 3-series `Canvas` chart; hover readout; theme colors; motion per Omarchy guidelines.
-- **Acceptance:** both views render correctly across midnight rollover; curves follow the palette after `omarchy theme set <name>`; panel opens via mouse and keyboard.
+### Phase 3 — popup redesign — **done (2026-11-12)**
+- Shipped: panel with header (title + `PanelActionButton` refresh), today's percentage rows, "Last 7 days" section with one stacked bar per day (localized day labels, hover `PanelToolTip` with exact percentages, today highlighted), "Total" section with the weekly aggregate bar, keyboard dismissal, error reporting.
+- Data: `PulseModel.fetch(awUrl, daysBack)` — the bar's 60 s poll fetches 1 day; opening the panel (or the refresh button) fetches 7 days; per-day classification and session-window spans computed in `analyzeWeek`.
+- Verified live by screenshot: 27/11/62% today, day bars (Fri–Thu), total bar; no QML errors after a clean restart.
+- Field findings: Qt's 3-arg `Qt.formatDate(date, fmt, locale)` throws "incompatible arguments" in this Quickshell build — use `date.toLocaleDateString(Qt.locale(name), fmt)` on a plain `new Date()` receiver (calling locale formatting on a `property date` receiver fails the same way).
 
 ### Phase 4 — polish & share
 - i18n catalogs (`en.json` + structure), per-app breakdown joining `aw-watcher-window-hyprland` data, PKGBUILD/install script polish, README screenshots, release v0.1, (optional) submit to Omarchy community channels.

@@ -32,6 +32,7 @@ docs/                    plan and design notes
    - Motion via Omarchy kit (`qs.Ui` components) or `Style.duration(ms)` / `Style.easeOut` from `qs.Commons`; no bare durations, no ease-in, ≤300 ms.
    - Ship strings as flat JSON catalogs in `i18n/` read via `Commons.Translations`; format numbers with `Commons.I18n.formatNumber`. English-only at first is fine.
    - `KeyboardPanel` sizes its card from the content root's `implicitHeight` — set it (`implicitHeight: contentColumn.implicitHeight`), or the card collapses and the content overflows below it. Note also: singleton access must be qualified (`Commons.Style`, not `Style`) in third-party plugins, and the shell defers plugin hot-reloads while the session is locked — verify changes with `omarchy restart shell` unlocked.
+   - Qt date-formatting quirks in this build: the 3-arg `Qt.formatDate(date, fmt, locale)` throws "Passing incompatible arguments to C++ functions"; use `date.toLocaleDateString(Qt.locale(name), fmt)` on a plain `new Date()` receiver — calling it on a QML `property date` receiver fails the same way.
 4. **Theme-aware, never hardcoded colors.** Use the palette exposed by `qs.Commons` — check a built-in plugin under `/usr/share/omarchy/shell/plugins/` for the exact API of the installed Omarchy version.
 
 ## Environment notes (this machine)
