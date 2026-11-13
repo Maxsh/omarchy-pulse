@@ -41,7 +41,7 @@ docs/                    plan and design notes
 - Omarchy skill docs: `~/.agents/skills/omarchy/` — read `plugins.md` before touching the widget; `hyprland.md` for keybindings; `theming.md` for theme handling.
 - Built-in plugins to copy patterns from: `/usr/share/omarchy/shell/plugins/` (read-only).
 - Plugin code under `~/.config/omarchy/plugins/` hot-reloads on save; force with `omarchy-shell shell rescanPlugins` if a change doesn't apply.
-- **Environment extras:** window and AFK buckets come from the bundled `aw-awatcher` (started by `aw-qt@autostart.service`, Wayland-native) — never write a second watcher into those buckets; read them instead. Widget changes must be verified with `omarchy restart shell` on an unlocked session; hot reload is unreliable here.
+- **Environment extras:** window and AFK buckets come from `aw-awatcher` (Wayland-native, ships with `activitywatch-bin`), supervised by the `aw-awatcher.service` user unit alongside `aw-server.service`; the tray client `aw-qt` is suppressed via `~/.config/autostart/aw-qt.desktop` (`Hidden=true`) since Omarchy has no system tray — don't re-enable it. Never write a second watcher into those buckets; read them instead. Widget changes must be verified with `omarchy restart shell` on an unlocked session; hot reload is unreliable here.
 - **Git identity:** this repo lives under `~/projects`, which maps via `includeIf` to `~/.config/git/maxsh.gitconfig` (personal identity + `id_ed25519_personal` SSH key).
 - **GitHub account:** the repo belongs to the `Maxsh` account, but this machine's default active `gh` account is `maksym-shaiev`. Switch with `gh auth switch -u Maxsh` for repo-management commands (creating the repo, releases, settings) and switch back afterward.
 
