@@ -357,15 +357,23 @@ function fetchWindowEvents(awUrl, daysBack, callback) {
   })
 }
 
+// Hand-set labels for classes whose reverse-DNS tail is not the product
+// name. The Slack TUI client runs under kitty with a pinned class (launcher:
+// Exec=kitty --class=com.slk.Tui slk), so the tail is the generic word "Tui"
+// while the binary name sits in the middle segment.
+var APP_LABELS = { "com.slk.Tui": "slk" }
+
 // Display label for an app class: shortened for readability, identity-safe
 // (the raw class stays the merge key and lives in the tooltip).
 //   "org.omarchy.agent"            -> "agent"
 //   "chrome-chatgpt.com__-Default" -> "chatgpt"   (Chrome/PWA classes)
 //   "google-chrome"                -> "chrome"    (vendor prefixes)
+//   "com.slk.Tui"                  -> "slk"       (APP_LABELS override)
 //   "foot", "zen", "aw-qt"         -> unchanged
 function prettyApp(appClass) {
   var name = String(appClass || "").trim()
   if (name === "") return ""
+  if (APP_LABELS[name]) return APP_LABELS[name]
   if (name.indexOf("chrome-") === 0) {
     name = name.slice("chrome-".length)
     var cutoff = name.indexOf("__")

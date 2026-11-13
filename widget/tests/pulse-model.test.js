@@ -122,6 +122,32 @@ function iso(h, m) {
   check("empty total", r.total.activeMinutes, 0)
 }
 
+// --- prettyApp: reverse-DNS shortening + label overrides ----------------------
+{
+  check("prettyApp agent", prettyApp("org.omarchy.agent"), "agent")
+  check("prettyApp chrome pwa", prettyApp("chrome-chatgpt.com__-Default"), "chatgpt")
+  check("prettyApp vendor", prettyApp("google-chrome"), "chrome")
+  check("prettyApp plain", prettyApp("foot"), "foot")
+  check("prettyApp empty", prettyApp(""), "")
+  // kitty wrapper with a pinned class: the reverse-DNS tail is a generic
+  // word ("Tui"); the product name is the middle segment — overridden.
+  check("prettyApp override", prettyApp("com.slk.Tui"), "slk")
+}
+
+// --- topApps keeps the raw class as merge key, override only for display ------
+{
+  const now = new Date()
+  now.setHours(10, 5, 0, 0)
+  const minutes = [
+    { tsMs: new Date(iso(10, 0)).getTime(), kind: 1 },
+    { tsMs: new Date(iso(10, 1)).getTime(), kind: 1 },
+  ]
+  const windows = [{ startMs: new Date(iso(9, 0)).getTime(), durationS: 7200, app: "com.slk.Tui" }]
+  const r = topApps(minutes, windows, 5)
+  check("topApps merge key stays raw", r.apps[0].app, "com.slk.Tui")
+  check("topApps label overridden", r.apps[0].label, "slk")
+}
+
 if (fails.length) {
   console.error("FAIL\n" + fails.join("\n"))
   process.exit(1)
