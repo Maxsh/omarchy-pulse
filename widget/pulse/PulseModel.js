@@ -20,8 +20,6 @@ var MIN_APP_SHARE_PCT = 3
 var MOVEMENT_THRESHOLD_PX = 400
 
 // Input gaps longer than this are "away" (lunch, meetings, sleep): they drop
-
-// Input gaps longer than this are "away" (lunch, meetings, sleep): they drop
 // out of the day's span instead of diluting the split. Matches ActivityWatch's
 // AFK threshold.
 var AFK_GAP_S = 180
