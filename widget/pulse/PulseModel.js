@@ -1,18 +1,33 @@
 // Pure helpers for the pulse widget: bucket discovery, range fetch, and the
 // keyboard/mouse/idle split per day. No state, no QML imports — everything
 // is passed in, which keeps the data logic reviewable on its own.
+//
+// The watcher reconstructs a device-ownership timeline and stores per-minute
+// seconds (kbS/mouseS/bothS) next to the stock counts; see docs/PLAN.md D10
+// and the HCI sources cited in watcher/pulse_watcher/timeline.py. Events from
+// the older count-only watcher are classified with the legacy count heuristic.
 
 var DEFAULT_AW_URL = "http://localhost:5600"
 var BUCKET_TYPE = "os.hid.input"
 var WINDOW_BUCKET_TYPE = "currentwindow"
 
-// Pointer travel that marks a minute as mouse-driven even without clicks
-// (about a screen crossing on this scale).
-var MOVEMENT_THRESHOLD_PX = 400
-
 // Apps below this share of attributed active time fold into "Other";
 // "Other" itself only shows when it clears the same bar.
 var MIN_APP_SHARE_PCT = 3
+
+// Pointer travel that marks a minute as mouse-driven in the legacy heuristic
+// (about a screen crossing on this scale).
+var MOVEMENT_THRESHOLD_PX = 400
+
+// Input gaps longer than this are "away" (lunch, meetings, sleep): they drop
+
+// Input gaps longer than this are "away" (lunch, meetings, sleep): they drop
+// out of the day's span instead of diluting the split. Matches ActivityWatch's
+// AFK threshold.
+var AFK_GAP_S = 180
+
+// Simultaneous keyboard+mouse use (bothS) splits evenly for display.
+var BOTH_SPLIT = 0.5
 
 function normalizeBase(url) {
   var base = String(url || DEFAULT_AW_URL)
@@ -108,10 +123,20 @@ function fetch(awUrl, daysBack, callback) {
   })
 }
 
-// One minute is keyboard when key presses outweigh mouse work; scroll or a
-// meaningful pointer travel counts as one unit of mouse work. Returns
-// 0 = idle, 1 = keyboard, 2 = mouse. Never sees which keys — counts only.
+function hasSeconds(data) {
+  return typeof data.kbS === "number" || typeof data.mouseS === "number" || typeof data.bothS === "number"
+}
+
+// A minute leans keyboard when its keyboard seconds outweigh its mouse
+// seconds; simultaneous use (bothS) splits evenly. Count-only events from
+// the legacy watcher fall back to comparing counts.
 function classifyMinute(data) {
+  if (hasSeconds(data)) {
+    var kb = (Number(data.kbS) || 0) + (Number(data.bothS) || 0) * BOTH_SPLIT
+    var mouse = (Number(data.mouseS) || 0) + (Number(data.bothS) || 0) * BOTH_SPLIT
+    if (kb + mouse <= 0) return 0
+    return kb >= mouse ? 1 : 2
+  }
   var presses = Number(data.presses) || 0
   var clicks = Number(data.clicks) || 0
   var scroll = (Number(data.scrollX) || 0) + (Number(data.scrollY) || 0)
@@ -122,10 +147,46 @@ function classifyMinute(data) {
   return kb >= mouse ? 1 : 2
 }
 
+// A server timeout after a successful write can store the same minute twice
+// (identical data), and a badly stalled reader can emit a late second event
+// for a flushed minute. Identical events collapse; differing ones merge by
+// summing, with the seconds clamped back to a minute's worth.
+function mergeDuplicateMinutes(events) {
+  var byStamp = {}
+  var out = []
+  for (var i = 0; i < events.length; i++) {
+    var event = events[i]
+    var stamp = String(event.timestamp)
+    var prev = byStamp[stamp]
+    if (prev === undefined) {
+      byStamp[stamp] = event
+      out.push(event)
+      continue
+    }
+    if (JSON.stringify(prev.data || {}) === JSON.stringify(event.data || {})) continue
+    var merged = {}
+    var a = prev.data || {}
+    var b = event.data || {}
+    for (var key in a) merged[key] = Number(a[key]) || 0
+    for (var key2 in b) merged[key2] = (Number(merged[key2]) || 0) + (Number(b[key2]) || 0)
+    var total = (Number(merged.kbS) || 0) + (Number(merged.mouseS) || 0) + (Number(merged.bothS) || 0)
+    if (total > 60) {
+      var scale = 60 / total
+      merged.kbS = (Number(merged.kbS) || 0) * scale
+      merged.mouseS = (Number(merged.mouseS) || 0) * scale
+      merged.bothS = (Number(merged.bothS) || 0) * scale
+    }
+    prev.data = merged
+  }
+  return out
+}
+
 function emptyDay() {
   return {
-    firstTsMs: NaN, lastTsMs: NaN, kbMinutes: 0, mouseMinutes: 0,
-    activeMinutes: 0, spanMinutes: 0, idleMinutes: 0, kbPct: 0, mousePct: 0, idlePct: 0,
+    firstTsMs: NaN, lastTsMs: NaN,
+    kbS: 0, mouseS: 0, bothS: 0, minutes: [],
+    kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0,
+    spanMinutes: 0, idleMinutes: 0, kbPct: 0, mousePct: 0, idlePct: 0,
   }
 }
 
@@ -133,10 +194,13 @@ function emptyDay() {
 // last `daysBack` days (days[0] = oldest, days[last] = today).
 //
 // Day window: today runs from its first input minute to now; past days run
-// from their first to last input minute — off-hours sleep never dilutes the
-// split. Minutes without events inside a day's window are idle. A day with
-// no events at all stays an all-zero "no data" record.
+// from their first to last input minute — with one refinement over plain
+// session spans: gaps longer than AFK_GAP_S count as "away" and drop out of
+// the span, so lunch or sleep doesn't read as a wall of idle. Minutes without
+// qualifying input inside the window are idle. A day with no events stays an
+// all-zero "no data" record.
 function analyzeWeek(events, nowMs, daysBack) {
+  events = mergeDuplicateMinutes(events || [])
   var midnights = []
   for (var d = daysBack - 1; d >= 0; d--) midnights.push(midnightDaysAgo(new Date(nowMs), d))
   var days = []
@@ -156,7 +220,20 @@ function analyzeWeek(events, nowMs, daysBack) {
     var day = days[index]
     if (!(day.firstTsMs <= ts)) day.firstTsMs = ts
     if (!(ts <= day.lastTsMs)) day.lastTsMs = ts
-    var kind = classifyMinute(event.data || {})
+    day.minutes.push(ts)
+    var data = event.data || {}
+    var kind = classifyMinute(data)
+    // Timeline events carry their own seconds; legacy count-only events
+    // contribute their whole minute to the side their counts classify to.
+    if (hasSeconds(data)) {
+      day.kbS += Number(data.kbS) || 0
+      day.mouseS += Number(data.mouseS) || 0
+      day.bothS += Number(data.bothS) || 0
+    } else if (kind === 1) {
+      day.kbS += 60
+    } else if (kind === 2) {
+      day.mouseS += 60
+    }
     if (kind === 0) continue
     day.activeMinutes += 1
     if (kind === 1) day.kbMinutes += 1
@@ -168,32 +245,69 @@ function analyzeWeek(events, nowMs, daysBack) {
   return { days: days, total: totalOf(days), todayMinutes: todayMinutes }
 }
 
+// Gaps between consecutive input minutes longer than AFK_GAP_S are "away":
+// only the first AFK_GAP_S of each gap stays in the span as idle.
+function awaySeconds(stamps, isToday, nowS, lastS) {
+  var ordered = stamps.slice().sort(function(a, b) { return a - b })
+  var away = 0
+  for (var i = 0; i < ordered.length - 1; i++) {
+    var gapS = Math.max(0, (ordered[i + 1] - ordered[i]) / 1000 - 60)
+    if (gapS > AFK_GAP_S) away += gapS - AFK_GAP_S
+  }
+  if (isToday) {
+    var trailingS = nowS - (lastS + 60)
+    if (trailingS > AFK_GAP_S) away += trailingS - AFK_GAP_S
+  }
+  return away
+}
+
 function finalizeDay(day, isToday, nowMs) {
-  if (day.activeMinutes === 0) return
-  var span = isToday
-    ? Math.ceil((nowMs - day.firstTsMs) / 60000)
-    : Math.round((day.lastTsMs - day.firstTsMs) / 60000) + 1
-  day.spanMinutes = Math.max(span, day.activeMinutes)
-  day.idleMinutes = day.spanMinutes - day.activeMinutes
-  day.kbPct = Math.round(day.kbMinutes * 100 / day.spanMinutes)
-  day.mousePct = Math.round(day.mouseMinutes * 100 / day.spanMinutes)
+  if (day.minutes.length === 0) return
+  var nowS = nowMs / 1000
+  var firstS = day.firstTsMs / 1000
+  var lastS = day.lastTsMs / 1000
+  var spanS = isToday
+    ? Math.ceil((nowS - firstS) / 60) * 60
+    : lastS - firstS + 60
+  spanS -= awaySeconds(day.minutes, isToday, nowS, lastS)
+  var activeS = day.kbS + day.mouseS + day.bothS
+  spanS = Math.max(spanS, activeS)
+  var kbS = day.kbS + day.bothS * BOTH_SPLIT
+  var mouseS = day.mouseS + day.bothS * BOTH_SPLIT
+  day.spanMinutes = spanS / 60
+  day.kbMinutes = kbS / 60
+  day.mouseMinutes = mouseS / 60
+  day.idleMinutes = Math.max(0, (spanS - activeS) / 60)
+  day.kbPct = Math.round(kbS * 100 / spanS)
+  day.mousePct = Math.round(mouseS * 100 / spanS)
   // Rounding the first two can drift off 100; idle absorbs the remainder.
   day.idlePct = Math.max(0, 100 - day.kbPct - day.mousePct)
 }
 
 // Week total: summed minutes across the per-day windows, as percentages.
 function totalOf(days) {
-  var total = { kbMinutes: 0, mouseMinutes: 0, idleMinutes: 0, activeMinutes: 0, kbPct: 0, mousePct: 0, idlePct: 0 }
+  var total = {
+    kbS: 0, mouseS: 0, bothS: 0,
+    kbMinutes: 0, mouseMinutes: 0, idleMinutes: 0, activeMinutes: 0,
+    kbPct: 0, mousePct: 0, idlePct: 0,
+  }
+  var spanS = 0
   for (var i = 0; i < days.length; i++) {
+    total.kbS += days[i].kbS
+    total.mouseS += days[i].mouseS
+    total.bothS += days[i].bothS
     total.kbMinutes += days[i].kbMinutes
     total.mouseMinutes += days[i].mouseMinutes
     total.idleMinutes += days[i].idleMinutes
     total.activeMinutes += days[i].activeMinutes
+    spanS += days[i].spanMinutes * 60
   }
-  var sum = total.kbMinutes + total.mouseMinutes + total.idleMinutes
-  if (sum > 0) {
-    total.kbPct = Math.round(total.kbMinutes * 100 / sum)
-    total.mousePct = Math.round(total.mouseMinutes * 100 / sum)
+  var sum = total.kbS + total.mouseS + total.bothS
+  if (sum > 0 && spanS > 0) {
+    var kbS = total.kbS + total.bothS * BOTH_SPLIT
+    var mouseS = total.mouseS + total.bothS * BOTH_SPLIT
+    total.kbPct = Math.round(kbS * 100 / spanS)
+    total.mousePct = Math.round(mouseS * 100 / spanS)
     total.idlePct = Math.max(0, 100 - total.kbPct - total.mousePct)
   }
   return total
