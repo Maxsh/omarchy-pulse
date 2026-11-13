@@ -17,7 +17,7 @@ class Config:
     hostname: str = ""  # empty -> socket.gethostname()
     exclude: tuple[str, ...] = ()
     verbose: bool = False
-    poll_offset_s: float = 2.0  # seconds after a minute boundary to flush
+    poll_offset_s: float = 2.0  # minimum seconds after a minute boundary to flush
 
 
 def _load_toml_overrides(path: pathlib.Path) -> dict:

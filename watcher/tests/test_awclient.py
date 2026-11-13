@@ -94,7 +94,11 @@ def test_shipper_retries_queue_until_success(server):
     _Recorder.status_by_path[events_path] = 200
     shipper.ship([])  # an empty flush must still retry the queue
     assert shipper.pending_count == 0
-    sent_bodies = [body for _m, path, body in _Recorder.requests if path == events_path and isinstance(body, list)]
+    sent_bodies = [
+        body
+        for _m, path, body in _Recorder.requests
+        if path == events_path and isinstance(body, list)
+    ]
     assert sent_bodies[-1] == [event]
 
 
@@ -108,7 +112,11 @@ def test_shipper_drops_oldest_on_overflow(server):
 
     _Recorder.status_by_path[events_path] = 200
     shipper.ship([])
-    sent_bodies = [body for _m, path, body in _Recorder.requests if path == events_path and isinstance(body, list)]
+    sent_bodies = [
+        body
+        for _m, path, body in _Recorder.requests
+        if path == events_path and isinstance(body, list)
+    ]
     shipped_minutes = [event["timestamp"] for event in sent_bodies[-1]]
     # minutes 0 and 60 were dropped as oldest
     assert len(shipped_minutes) == 3
