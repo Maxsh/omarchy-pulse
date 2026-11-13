@@ -69,7 +69,9 @@ class ActivityWatchClient:
     def send_events(self, events: Sequence[Mapping]) -> bool:
         if not events:
             return True
-        status, body = self._request("POST", f"/api/0/buckets/{self.bucket_id}/events", list(events))
+        status, body = self._request(
+            "POST", f"/api/0/buckets/{self.bucket_id}/events", list(events)
+        )
         if status == 200:
             return True
         log.error("sending %d event(s) failed (HTTP %d): %s", len(events), status, body)

@@ -21,6 +21,7 @@ Give an Omarchy user a live, local view of their day: how active they were, and 
 | D7 | Popup design | **Horizontal stacked bars**: today's percentages as rows on top; one stacked bar per day for the last 7 days (hover tooltip with exact keyboard/mouse/idle percentages); a total bar for the week; refresh action in the header | Superseded the original canvas-curves idea after the first live design pass — per-day bars answer "how did my split look each day" at a glance, and reuse the mini-bar visual language. |
 | D8 | Values shown | **Relative only**: keyboard/mouse/idle as percentages of the session so far (first input minute → now); no absolute counts in bar or panel | Product direction from first field use: absolute click/press counts don't answer "how did my time split". Classification per minute by dominant input (presses vs clicks/scroll/movement). Session span instead of since-midnight so night sleep doesn't dilute the split. |
 | D9 | Window source | The system's own window watcher: `aw-qt@autostart` runs the bundled `aw-awatcher` (Wayland-native, ships with activitywatch-bin), writing the stock `currentwindow` bucket | The popup joins input minutes onto its focus spans and reads only `data.app`. A custom app-only window watcher was built first, then dropped — it duplicated awatcher and double-wrote the shared bucket with different semantics (titles on/off). The widget auto-discovers any `currentwindow` bucket, so it also works with `aw-watcher-window` or future replacements. |
+| D10 | Keyboard/mouse split | **Seconds, not counts** (2026-11-13): a device-ownership timeline (`timeline.py`) reconstructs per-second which device the hands were on. Constants from HCI research — Keystroke-Level Model (Card, Moran & Newell 1980; Kieras 2001, https://web.eecs.umich.edu/~kieras/docs/GOMS/KLM.pdf): homing H = 0.4 s credited to the device switched *to*; typing bursts end after ~2 s keyboard / ~1 s mouse silence plus a 1 s tail; keys within 0.3 s of a click or during a held button (Shift+drag, Ctrl+click) count as mouse; motion is real at ≥ 1 mm / 250 ms (kernel resolution, mice assumed 1000 DPI); autorepeat and held buttons are continuous keep-alives; rapid alternation (flips faster than H, e.g. WASD + aiming) is binned as `bothS` and split evenly for display. Event data gains additive keys `kbS`/`mouseS`/`bothS` (stock keys untouched); minutes flush only after gap+tail (`RESOLVE_S`) so boundary bursts resolve. Widget: percentages come from seconds; gaps > 180 s (AW AFK threshold) drop out of the span as "away"; duplicate minutes (retry/late flush) collapse or merge. The old dominant-count classification remains as fallback for count-only events. Review findings that motivated this: counts aren't comparable units, minute ties leaned keyboard, touchpad touch-down jumps and tap-to-click/two-finger scroll were miscounted. |
 
 ## 3. Architecture
 
@@ -67,6 +68,7 @@ One event per minute, in the `input` bucket:
 
 - Keys match stock `aw-watcher-input` exactly (Q1 resolved), so ActivityWatch's own visualizations keep working.
 - Minutes with zero input are not emitted — absence means idle (D5).
+- Since D10 (2026-11-13) events also carry `kbS`, `mouseS`, `bothS` — device-ownership seconds per minute (additive keys; the stock keys above are never renamed).
 - "Total activity" per interval = count of minutes with any input (or sum of normalized counts — decide in Phase 3 while tuning the visual).
 
 ## 5. Component specs
@@ -76,8 +78,9 @@ One event per minute, in the `input` bucket:
 | Module | Responsibility |
 |---|---|
 | `devices.py` | Enumerate `/dev/input/event*` (own glob — `evdev.list_devices()` silently drops unreadable devices); classify via capabilities (letters/LED → keyboard, relative/absolute motion → pointer, gamepads & power buttons → ignored). Logs a fix hint when devices are unreadable (missing `input` group). Rescanned every minute for hotplug. |
-| `reader.py` | One thread per device: raw evdev events → semantic count records via `EventTranslator` (presses = physical presses only, autorepeat excluded; touchpad deltas while touched; hi-res wheel ignored to avoid double counting). |
-| `counter.py` | Thread-safe per-minute bins with the stock keys; multi-device summing by construction. |
+| `reader.py` | One thread per device: raw evdev events → count records + timeline actions via `EventTranslator` (presses = physical presses only, autorepeat forwarded as keep-alive; touchpad deltas in mm via the device's resolution; touch-down resets the contact origin; short still touches synthesize tap-to-click; hi-res wheel ignored to avoid double counting). |
+| `timeline.py` | Device-ownership timeline (D10): ordered input actions → per-minute keyboard/mouse/both seconds, with burst gaps/tails, KLM homing on device switches, click chords, a motion jitter filter, and rapid-alternation "both" detection. Drains once per minute on the main loop. |
+| `counter.py` | Thread-safe per-minute bins with the stock keys plus the seconds keys; multi-device summing by construction; `resolve_s` delays completion until boundary bursts are resolved. |
 | `events.py` | Minute bin → ActivityWatch event (ISO timestamp, duration 60 s). |
 | `awclient.py` | Bucket creation (`os.hid.input`), bulk event POST, bounded retry queue (180 min) across AW outages/restarts. |
 | `config.py` | Defaults < `~/.config/omarchy-pulse/config.toml` < CLI flags. |
@@ -118,6 +121,8 @@ Repo, README, AGENTS.md, this plan.
 - Field findings: Qt's 3-arg `Qt.formatDate(date, fmt, locale)` throws "incompatible arguments" in this Quickshell build — use `date.toLocaleDateString(Qt.locale(name), fmt)` on a plain `new Date()` receiver (calling locale formatting on a `property date` receiver fails the same way).
 
 ### Phase 4 — polish & share (in progress — per-app breakdown on branch `feat/per-app-breakdown`)
+
+- **Input-time attribution (D10, 2026-11-13):** replaced the per-minute dominant-count classification with a device-ownership timeline measuring keyboard/mouse/idle in seconds. Watcher: `timeline.py` (state machine + jitter filter + chord/both detection), translator rework (autorepeat keep-alives, touchpad resolution, tap-to-click, touch-down reset), resolve-margin flush, additive `kbS`/`mouseS`/`bothS` event keys. Widget: seconds-based percentages, AFK gap exclusion, duplicate-minute merge, legacy fallback. Tests: 28 watcher cases incl. the seven worked examples; `widget/tests/pulse-model.test.js` under node; CI in `.github/workflows/tests.yml`.
 - **Per-app breakdown:** "Top apps" section in the popup — window-focus spans from the system awatcher bucket joined onto today's input minutes; top 5 + "other", share-of-active bar split by each app's own keyboard/mouse ratio, hover tooltips; live via the 60 s poll (self-heals once the window bucket exists); hidden-with-hint while it doesn't.
 - Remaining: i18n catalogs beyond `en.json`, packaging (PKGBUILD/install script polish), README screenshots, release v0.1, (optional) submit to Omarchy community channels.
 

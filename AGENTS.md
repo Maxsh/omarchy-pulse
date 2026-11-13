@@ -34,6 +34,7 @@ docs/                    plan and design notes
    - `KeyboardPanel` sizes its card from the content root's `implicitHeight` — set it (`implicitHeight: contentColumn.implicitHeight`), or the card collapses and the content overflows below it. Note also: singleton access must be qualified (`Commons.Style`, not `Style`) in third-party plugins, and the shell defers plugin hot-reloads while the session is locked — verify changes with `omarchy restart shell` unlocked.
    - Qt date-formatting quirks in this build: the 3-arg `Qt.formatDate(date, fmt, locale)` throws "Passing incompatible arguments to C++ functions"; use `date.toLocaleDateString(Qt.locale(name), fmt)` on a plain `new Date()` receiver — calling it on a QML `property date` receiver fails the same way.
 4. **Theme-aware, never hardcoded colors.** Use the palette exposed by `qs.Commons` — check a built-in plugin under `/usr/share/omarchy/shell/plugins/` for the exact API of the installed Omarchy version.
+5. **Input-time attribution follows HCI research — verify it stays that way.** The keyboard/mouse/idle split is computed by the device-ownership timeline in `watcher/pulse_watcher/timeline.py`, whose constants come from published HCI motor-behavior results: the **Keystroke-Level Model** (Card, Moran & Newell 1980; operator times in Kieras 2001, <https://web.eecs.umich.edu/~kieras/docs/GOMS/KLM.pdf>: keystroke K ≈ 0.2 s, button B ≈ 0.1 s, point P ≈ 1.1 s, homing H = 0.4 s) and **typing-burst studies** (~2 s word pauses end a burst). Before changing classification or attribution code, re-check the implementation against those sources and the parameter table in docs/PLAN.md (decision D10) — the constants are research values, not ad-hoc guesses, and must not be silently retuned. Keep the module docstring citing the sources, and keep the worked examples in `watcher/tests/test_timeline.py` passing (they are the executable form of the model).
 
 ## Environment notes (this machine)
 
@@ -74,9 +75,13 @@ uv run pulse-watcher --verbose
 
 ## Testing
 
-- Watcher: unit-test the aggregator with synthetic evdev events (per-minute buckets, AFK transitions, multi-device summing). Integration-test the AW client against a local HTTP stub — CI must not require a running ActivityWatch.
-- Add a test asserting the watcher's emitted event schema contains only count/idle fields (privacy rule #1).
-- Widget: no automated UI tests planned; rely on `qmllint` + manual checks after hot-reload. Keep logic testable as described under Conventions.
+- Watcher: unit-test the aggregator with synthetic evdev events (per-minute buckets, AFK transitions, multi-device summing). Unit-test the timeline with synthetic action streams — the worked examples of docs/PLAN.md D10 are the test names in `watcher/tests/test_timeline.py`. Integration-test the AW client against a local HTTP stub — CI must not require a running ActivityWatch.
+- Add a test asserting the watcher's emitted event schema contains only count/seconds fields (privacy rule #1).
+- Widget: no automated UI tests planned; rely on `qmllint` + manual checks after hot-reload. Keep logic testable as described under Conventions — the pure model logic runs under node (`widget/tests/pulse-model.test.js`, also in CI).
+
+## CI
+
+- `.github/workflows/tests.yml` runs on push to main and on PRs: watcher lint + pytest (via `uv`), and the widget model tests under node. Keep it hermetic — no ActivityWatch, no devices.
 
 ## Do not
 
@@ -89,5 +94,5 @@ uv run pulse-watcher --verbose
 
 - ActivityWatch REST API: https://docs.activitywatch.net/en/latest/api.html
 - aw-watcher-input (bucket schema to stay compatible with): https://github.com/ActivityWatch/aw-watcher-input
-- **Bucket schema (confirmed from source, 2026-11-12):** bucket id `aw-watcher-input_{hostname}`, type `os.hid.input`, event data keys `presses`, `clicks`, `deltaX`, `deltaY`, `scrollX`, `scrollY`. Never rename these keys — compatibility with ActivityWatch tooling depends on them.
+- **Bucket schema (confirmed from source, 2026-11-12):** bucket id `aw-watcher-input_{hostname}`, type `os.hid.input`, event data keys `presses`, `clicks`, `deltaX`, `deltaY`, `scrollX`, `scrollY`. Never rename these keys — compatibility with ActivityWatch tooling depends on them. Since the input-time timeline (D10, 2026-11-13) the watcher also writes three **additive** keys — `kbS`, `mouseS`, `bothS` (device-ownership seconds per minute); they extend, never replace, the stock schema.
 - Omarchy: https://omarchy.org/ — shell/plugin docs via the local skill (`~/.agents/skills/omarchy/`)

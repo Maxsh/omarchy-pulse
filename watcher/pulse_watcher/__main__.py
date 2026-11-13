@@ -15,6 +15,7 @@ from .counter import MinuteCounter
 from .devices import InputDeviceInfo, discover
 from .events import build_event
 from .reader import DeviceReader
+from .timeline import RESOLVE_S, Timeline
 
 log = logging.getLogger("pulse-watcher")
 
@@ -34,7 +35,8 @@ def main(argv: list[str] | None = None) -> int:
 
     hostname = cfg.hostname or socket.gethostname()
     bucket_id = f"{cfg.bucket_prefix}_{hostname}"
-    counter = MinuteCounter()
+    counter = MinuteCounter(resolve_s=RESOLVE_S)
+    timeline = Timeline(counter)
     client = ActivityWatchClient(cfg.aw_url, bucket_id, hostname)
     shipper = EventShipper(client)
     stop = threading.Event()
@@ -46,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
             readers.pop(reader.info.path, None)
 
     def spawn(info: InputDeviceInfo) -> None:
-        reader = DeviceReader(info, counter, on_death=on_death)
+        reader = DeviceReader(info, counter, timeline, on_death=on_death)
         with readers_lock:
             readers[info.path] = reader
         reader.start()
@@ -68,14 +70,22 @@ def main(argv: list[str] | None = None) -> int:
 
     log.info("watching input for bucket %s at %s", bucket_id, cfg.aw_url)
 
+    # A minute flushes only once its bursts are fully resolved: an input pause
+    # of up to gap + tail can still extend a burst into the finished minute,
+    # so the effective offset is at least RESOLVE_S plus a small margin.
+    flush_offset = max(cfg.poll_offset_s, RESOLVE_S + 0.5)
+
     while not stop.is_set():
         now = time.time()
-        delay = 60.0 - (now % 60.0) + cfg.poll_offset_s
+        delay = 60.0 - (now % 60.0) + flush_offset
         delay = min(max(delay, _MIN_SLEEP_S), _MAX_SLEEP_S)
         if stop.wait(delay):
             break
 
-        completed = counter.take_completed(time.time())
+        now = time.time()
+        timeline.drain()  # process queued actions in timestamp order
+        timeline.close_stale(now)  # end bursts that simply stopped
+        completed = counter.take_completed(now)
         shipper.ship([build_event(minute_ts, data) for minute_ts, data in completed])
         if shipper.pending_count:
             log.debug("%d minute(s) still queued", shipper.pending_count)
@@ -88,6 +98,11 @@ def main(argv: list[str] | None = None) -> int:
                 spawn(info)
 
     log.info("shutting down")
+    timeline.drain()
+    timeline.close_stale(time.time())
+    shipper.ship(
+        [build_event(minute_ts, data) for minute_ts, data in counter.take_completed(time.time())]
+    )
     return 0
 
 
