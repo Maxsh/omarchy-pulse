@@ -27,6 +27,13 @@ var AFK_GAP_S = 180
 // Simultaneous keyboard+mouse use (bothS) splits evenly for display.
 var BOTH_SPLIT = 0.5
 
+// Event-fetch bound, in events. A week of per-minute events maxes out around
+// 10k, so this doubles as the response-size cap that plugin network access
+// requires. A plain positive limit also keeps both aw-server flavors happy:
+// some aw-server-rust builds reject the Python server's "no limit" sentinel
+// (-1), while an explicit positive number means the same on both.
+var EVENT_FETCH_LIMIT = 20000
+
 function normalizeBase(url) {
   var base = String(url || DEFAULT_AW_URL)
   while (base.charAt(base.length - 1) === "/") base = base.slice(0, -1)
@@ -83,8 +90,8 @@ function _getJson(url, callback) {
 }
 
 // Resolve the input bucket and fetch the last `daysBack` days (including
-// today) of per-minute events; the server-side start filter keeps the
-// payload bounded. Calls back with
+// today) of per-minute events; the server-side start filter and the
+// EVENT_FETCH_LIMIT cap keep the payload bounded. Calls back with
 //   { ok, bucketId, activity, days, total }
 // where `activity` is today's record (same shape the bar widget polls with)
 // and `days[daysBack - 1]` is today.
@@ -102,7 +109,7 @@ function fetch(awUrl, daysBack, callback) {
     }
     var now = new Date()
     var url = base + "/api/0/buckets/" + encodeURIComponent(bucketId)
-      + "/events?limit=-1&start=" + encodeURIComponent(isoUtc(midnightDaysAgo(now, daysBack - 1)))
+      + "/events?limit=" + EVENT_FETCH_LIMIT + "&start=" + encodeURIComponent(isoUtc(midnightDaysAgo(now, daysBack - 1)))
     _getJson(url, function(ok2, events) {
       if (!ok2) {
         callback({ ok: false, error: "unreachable" })
@@ -337,7 +344,7 @@ function fetchWindowEvents(awUrl, daysBack, callback) {
     }
     var now = new Date()
     var url = base + "/api/0/buckets/" + encodeURIComponent(bucketId)
-      + "/events?limit=-1&start=" + encodeURIComponent(isoUtc(midnightDaysAgo(now, daysBack - 1)))
+      + "/events?limit=" + EVENT_FETCH_LIMIT + "&start=" + encodeURIComponent(isoUtc(midnightDaysAgo(now, daysBack - 1)))
     _getJson(url, function(ok2, events) {
       if (!ok2) {
         callback({ ok: false, error: "unreachable" })
