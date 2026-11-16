@@ -1,14 +1,16 @@
 [Unit]
-Description=ActivityWatch server (aw-server)
+Description=ActivityWatch server (aw-server-rust)
 Documentation=https://activitywatch.net
 PartOf=graphical-session.target
 After=graphical-session.target
 
 [Service]
-# The AUR package activitywatch-bin ships no systemd unit for the Python server
-# (only an aw-server-rust template under /opt), so we provide our own.
-# Data lives in ~/.local/share/activitywatch/.
-ExecStart=/usr/bin/aw-server
+# The AUR package activitywatch-bin bundles both server flavors, but its XDG
+# autostart only manages aw-qt (tray), which can't run on Omarchy (no system
+# tray), so we supervise the bundled aw-server-rust directly.
+# First start auto-imports the legacy Python datastore
+# (~/.local/share/activitywatch/aw-server/) into aw-server-rust/.
+ExecStart=/usr/bin/aw-server-rust
 Restart=on-failure
 RestartSec=5s
 
