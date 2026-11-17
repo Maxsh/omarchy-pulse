@@ -397,23 +397,53 @@ function fetchWindowEvents(awUrl, daysBack, callback) {
   })
 }
 
-// Hand-set labels for classes whose reverse-DNS tail is not the product
-// name. The Slack TUI client runs under kitty with a pinned class (launcher:
-// Exec=kitty --class=com.slk.Tui slk), so the tail is the generic word "Tui"
-// while the binary name sits in the middle segment.
-var APP_LABELS = { "com.slk.Tui": "slk" }
+// User-settable display-name overrides for app classes (inline shell.json
+// entry `appLabels`), e.g. { "org.mozilla.firefox": "firefox-esr" }.
+// ActivityWatch has no rename feature (its categorization maps apps to
+// categories, not names), so the widget shortens classes itself and lets
+// users override per entry. Only a plain string→string object is accepted;
+// anything else — arrays, nested values, overlong entries — is dropped, and
+// labels render through PlainText sinks regardless (plugins.md).
+var MAX_APP_LABELS = 50
+var MAX_APP_LABEL_LEN = 24
+var MAX_APP_LABEL_KEY_LEN = 64
+
+function sanitizeAppLabels(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null
+  var out = {}
+  var count = 0
+  for (var key in raw) {
+    if (!Object.prototype.hasOwnProperty.call(raw, key)) continue
+    if (count >= MAX_APP_LABELS) break
+    var value = raw[key]
+    if (typeof value !== "string") continue
+    var k = String(key).trim()
+    var v = value.trim()
+    if (k === "" || v === "") continue
+    if (k.length > MAX_APP_LABEL_KEY_LEN || v.length > MAX_APP_LABEL_LEN) continue
+    out[k] = v
+    count++
+  }
+  return count > 0 ? out : null
+}
+
+// Reverse-DNS tails that are generic words rather than product names; when
+// one appears, the middle segment is the label instead ("com.slk.Tui" —
+// the Slack TUI client under kitty with a pinned class — becomes "slk").
+var GENERIC_TAILS = { tui: true, app: true, desktop: true, client: true, gui: true, qt: true }
 
 // Display label for an app class: shortened for readability, identity-safe
 // (the raw class stays the merge key and lives in the tooltip).
 //   "org.omarchy.agent"            -> "agent"
 //   "chrome-chatgpt.com__-Default" -> "chatgpt"   (Chrome/PWA classes)
 //   "google-chrome"                -> "chrome"    (vendor prefixes)
-//   "com.slk.Tui"                  -> "slk"       (APP_LABELS override)
+//   "com.slk.Tui"                  -> "slk"       (generic tail rule)
 //   "foot", "zen", "aw-qt"         -> unchanged
-function prettyApp(appClass) {
+// A sanitized user map (sanitizeAppLabels) wins over every rule.
+function prettyApp(appClass, labels) {
   var name = String(appClass || "").trim()
   if (name === "") return ""
-  if (APP_LABELS[name]) return APP_LABELS[name]
+  if (labels && labels[name]) return labels[name]
   if (name.indexOf("chrome-") === 0) {
     name = name.slice("chrome-".length)
     var cutoff = name.indexOf("__")
@@ -430,7 +460,16 @@ function prettyApp(appClass) {
     }
   }
   var dot = name.lastIndexOf(".")
-  if (dot !== -1 && dot + 1 < name.length) return name.slice(dot + 1)
+  if (dot !== -1 && dot + 1 < name.length) {
+    var tail = name.slice(dot + 1)
+    if (GENERIC_TAILS[tail.toLowerCase()]) {
+      var head = name.slice(0, dot)
+      var prev = head.lastIndexOf(".")
+      if (prev !== -1 && prev + 1 < head.length) return head.slice(prev + 1)
+      if (head !== "") return head
+    }
+    return tail
+  }
   return name
 }
 
@@ -445,7 +484,7 @@ function prettyApp(appClass) {
 //
 // `minutes` and `windows` may arrive in any order (the API returns events
 // newest-first) — both are sorted here before the two-pointer walk.
-function topApps(minutes, windows, topN) {
+function topApps(minutes, windows, topN, labels) {
   var sortedMinutes = minutes.slice().sort(function(a, b) { return a.tsMs - b.tsMs })
   var sortedWindows = windows.slice().sort(function(a, b) { return a.startMs - b.startMs })
   var byApp = {}
@@ -457,7 +496,7 @@ function topApps(minutes, windows, topN) {
     if (app === "") continue
     var record = byApp[app]
     if (!record) {
-      record = byApp[app] = { app: app, label: prettyApp(app), kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
+      record = byApp[app] = { app: app, label: prettyApp(app, labels), kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
     }
     record.activeMinutes += 1
     if (minute.kind === 1) record.kbMinutes += 1

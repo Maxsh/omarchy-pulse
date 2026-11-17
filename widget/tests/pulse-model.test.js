@@ -122,7 +122,7 @@ function iso(h, m) {
   check("empty total", r.total.activeMinutes, 0)
 }
 
-// --- prettyApp: reverse-DNS shortening + label overrides ----------------------
+// --- prettyApp: reverse-DNS shortening + generic tails + user overrides ------
 {
   check("prettyApp agent", prettyApp("org.omarchy.agent"), "agent")
   check("prettyApp chrome pwa", prettyApp("chrome-chatgpt.com__-Default"), "chatgpt")
@@ -130,8 +130,33 @@ function iso(h, m) {
   check("prettyApp plain", prettyApp("foot"), "foot")
   check("prettyApp empty", prettyApp(""), "")
   // kitty wrapper with a pinned class: the reverse-DNS tail is a generic
-  // word ("Tui"); the product name is the middle segment — overridden.
-  check("prettyApp override", prettyApp("com.slk.Tui"), "slk")
+  // word ("Tui"); the product name is the middle segment.
+  check("prettyApp generic tail", prettyApp("com.slk.Tui"), "slk")
+  check("prettyApp generic tail app", prettyApp("io.github.foo.App"), "foo")
+  check("prettyApp generic tail desktop", prettyApp("org.example.Desktop"), "example")
+  check("prettyApp non-generic tail", prettyApp("org.example.firefox"), "firefox")
+  // A sanitized user map wins over every rule.
+  check("prettyApp user override", prettyApp("com.slk.Tui", { "com.slk.Tui": "Slack TUI" }), "Slack TUI")
+  check("prettyApp override misses", prettyApp("foot", { "com.slk.Tui": "Slack TUI" }), "foot")
+  check("prettyApp null labels", prettyApp("foot", null), "foot")
+}
+
+// --- sanitizeAppLabels: the shell.json map is untrusted -----------------------
+{
+  const good = sanitizeAppLabels({ "com.slk.Tui": "slk", "org.x.Y": "y" })
+  check("labels valid map kept", good["com.slk.Tui"], "slk")
+  check("labels null", sanitizeAppLabels(null), null)
+  check("labels array", sanitizeAppLabels(["slk"]), null)
+  check("labels string", sanitizeAppLabels("slk"), null)
+  check("labels non-string values dropped", sanitizeAppLabels({ a: 5, b: { x: 1 }, c: "ok" })["c"], "ok")
+  check("labels non-string map size", Object.keys(sanitizeAppLabels({ a: 5, b: { x: 1 }, c: "ok" })).length, 1)
+  check("labels empty value dropped", sanitizeAppLabels({ a: "  " }), null)
+  check("labels overlong value dropped", sanitizeAppLabels({ a: "x".repeat(25) }), null)
+  check("labels value at cap kept", sanitizeAppLabels({ a: "x".repeat(24) })["a"], "x".repeat(24))
+  check("labels trimmed", sanitizeAppLabels({ " k ": " v " })["k"], "v")
+  let many = {}
+  for (let i = 0; i < 60; i++) many["k" + i] = "v"
+  check("labels count capped", Object.keys(sanitizeAppLabels(many)).length, 50)
 }
 
 // --- topApps keeps the raw class as merge key, override only for display ------
@@ -145,7 +170,9 @@ function iso(h, m) {
   const windows = [{ startMs: new Date(iso(9, 0)).getTime(), durationS: 7200, app: "com.slk.Tui" }]
   const r = topApps(minutes, windows, 5)
   check("topApps merge key stays raw", r.apps[0].app, "com.slk.Tui")
-  check("topApps label overridden", r.apps[0].label, "slk")
+  check("topApps generic-tail label", r.apps[0].label, "slk")
+  const r2 = topApps(minutes, windows, 5, { "com.slk.Tui": "slack" })
+  check("topApps user label wins", r2.apps[0].label, "slack")
 }
 
 // --- resolveAwUrl: the awUrl setting stays local-only ------------------------

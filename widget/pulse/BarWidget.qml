@@ -30,6 +30,9 @@ BarWidget {
   // keeps it local-only (plugin network rule) — anything but a loopback
   // http(s) URL falls back to the default.
   readonly property string awUrl: PulseModel.resolveAwUrl(setting("awUrl", PulseModel.DEFAULT_AW_URL))
+  // Display-name overrides for Top apps (sanitizeAppLabels drops anything
+  // that is not a plain string→string map).
+  readonly property var appLabels: PulseModel.sanitizeAppLabels(setting("appLabels", null))
   readonly property bool hasData: activity !== null && activity.spanMinutes > 0
 
   // One hue, three intensities: keyboard bright, mouse mid, idle dim.
@@ -154,7 +157,7 @@ BarWidget {
 
   function rebuildApps() {
     if (root.todayMinutes === null || root.windowSpans === null) return
-    root.apps = PulseModel.topApps(root.todayMinutes, root.windowSpans, 5)
+    root.apps = PulseModel.topApps(root.todayMinutes, root.windowSpans, 5, root.appLabels)
   }
 
   Loader {
