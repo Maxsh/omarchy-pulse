@@ -1,0 +1,17 @@
+# Replaces aw-qt's module management: aw-qt can't run on Omarchy (no system
+# tray) and only leaves this watcher orphaned, so we supervise it directly.
+# Provides the `currentwindow` and `afk` buckets the widget's Top apps
+# section joins input minutes onto. Defaults: server 127.0.0.1:5600.
+[Unit]
+Description=ActivityWatch window/AFK watcher (aw-awatcher, Wayland)
+Documentation=https://github.com/2e3s/aw-awatcher
+PartOf=graphical-session.target
+After=graphical-session.target aw-server.service
+
+[Service]
+ExecStart=/opt/activitywatch/aw-awatcher
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=graphical-session.target

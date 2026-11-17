@@ -24,8 +24,11 @@ sudo usermod -aG input $USER
 
 ## Install as a service
 
+One step from the repo root: `install/install.sh` (installs the units below with
+paths adjusted, plus the bar widget). The manual sequence:
+
 ```bash
-# ActivityWatch server (from the repo root — the AUR package ships no unit for it)
+# ActivityWatch server (the AUR package ships no unit for it)
 cp install/aw-server.service ~/.config/systemd/user/
 
 # the watcher (adjust ExecStart if this repo lives elsewhere)
