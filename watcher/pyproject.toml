@@ -1,6 +1,6 @@
 [project]
 name = "omarchy-pulse-watcher"
-version = "0.1.0"
+version = "0.1.1"
 description = "Keyboard and mouse activity watcher for Omarchy: counts input events and ships them to ActivityWatch"
 requires-python = ">=3.11"
 dependencies = ["evdev>=1.7"]
