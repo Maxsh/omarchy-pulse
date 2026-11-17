@@ -25,7 +25,7 @@ Everything follows your Omarchy theme, and the panel speaks English and Ukrainia
 <p align="center">
   <img src="docs/img/panel.png" alt="The pulse panel on Gruvbox: today's split, top apps, last 7 days" width="250">
   <img src="docs/img/panel-latte.png" alt="The pulse panel on Catppuccin Latte" width="250">
-  <img src="docs/img/panel-hackerman.png" alt="The pulse panel on Hackerman, in Ukrainian" width="250">
+  <img src="docs/img/panel-hackerman-uk.png" alt="The pulse panel on Hackerman, in Ukrainian" width="250">
 </p>
 
 ## Why
