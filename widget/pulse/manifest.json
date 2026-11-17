@@ -4,14 +4,14 @@
   "name": "Pulse",
   "version": "0.1.0",
   "author": "Maxsh",
-  "description": "Keyboard & mouse activity from ActivityWatch",
+  "description": "Keyboard, mouse, and idle time from ActivityWatch",
   "kinds": ["bar-widget"],
   "entryPoints": {
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
     "displayName": "Pulse",
-    "description": "Today's keyboard and mouse activity (ActivityWatch)",
+    "description": "Today's keyboard, mouse, and idle split (ActivityWatch)",
     "category": "Stats",
     "allowMultiple": false,
     "defaultSection": "right"
