@@ -44,6 +44,10 @@ Panel {
   readonly property int appsNameWidth: Commons.Style.space(76)
   readonly property int appsPctWidth: Commons.Style.space(34)
 
+  // One family for all panel text, following the bar's font like the
+  // built-in panels do (clock, monitor).
+  readonly property string contentFontFamily: bar ? bar.fontFamily : Commons.Style.font.family
+
   readonly property color kbColor: hostWidget ? hostWidget.kbColor : Commons.Color.accent
   readonly property color mouseColor: hostWidget ? hostWidget.mouseColor : Commons.Util.alpha(Commons.Color.accent, 0.45)
   readonly property color idleColor: hostWidget ? hostWidget.idleColor : Commons.Util.alpha(Commons.Color.accent, 0.15)
@@ -71,6 +75,17 @@ Panel {
     if (opened) refresh()
   }
 
+  // ---- Every text sink in the panel. Plain text is enforced here once:
+  // app labels and error text come from untrusted sources (plugins.md).
+  // Defaults are the primary-value role. Instances override only what
+  // differs.
+  component PlainText: Text {
+    textFormat: Text.PlainText
+    color: Commons.Color.popups.text
+    font.family: root.contentFontFamily
+    font.pixelSize: Commons.Style.font.body
+  }
+
   // ---- Percentage row: color swatch, label, right-aligned value.
   component PctRow: Item {
     id: row
@@ -90,25 +105,17 @@ Panel {
       anchors.verticalCenter: parent.verticalCenter
     }
 
-    Text {
+    PlainText {
       id: labelText_
-      textFormat: Text.PlainText
       text: row.labelText
-      color: Commons.Color.popups.text
-      font.family: Commons.Style.font.family
-      font.pixelSize: Commons.Style.font.body
       anchors.left: swatch.right
       anchors.leftMargin: Commons.Style.space(8)
       anchors.verticalCenter: parent.verticalCenter
     }
 
-    Text {
+    PlainText {
       id: valueText_
-      textFormat: Text.PlainText
       text: row.valueText
-      color: Commons.Color.popups.text
-      font.family: Commons.Style.font.family
-      font.pixelSize: Commons.Style.font.body
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       horizontalAlignment: Text.AlignRight
@@ -126,13 +133,11 @@ Panel {
     width: parent ? parent.width : 0
     height: Commons.Style.space(14)
 
-    Text {
+    PlainText {
       id: label
       visible: barRow.rowLabel !== ""
-      textFormat: Text.PlainText
       text: barRow.rowLabel
       color: barRow.highlightLabel ? Commons.Color.popups.text : Commons.Color.muted
-      font.family: Commons.Style.font.family
       font.pixelSize: Commons.Style.font.bodySmall
       width: visible ? Commons.Style.space(40) : 0
       elide: Text.ElideRight
@@ -185,6 +190,7 @@ Panel {
 
     PanelToolTip {
       visible: hoverArea.containsMouse
+      fontFamily: root.contentFontFamily
       text: barRow.hasData ? root.pctText(barRow.day) : strings.t("pulse.noDataDay")
     }
   }
@@ -203,15 +209,13 @@ Panel {
     width: parent ? parent.width : 0
     height: Commons.Style.space(14)
 
-    Text {
+    PlainText {
       id: appName
-      textFormat: Text.PlainText
       text: tornadoRow.record
         ? (tornadoRow.record.app === "other" ? strings.t("pulse.other") : tornadoRow.record.label)
         : ""
-      // Same size/style as the highlighted "today" day label in Last 7 days.
-      color: Commons.Color.popups.text
-      font.family: Commons.Style.font.family
+      // Same size/style as its percentage and the highlighted "today" day
+      // label in Last 7 days.
       font.pixelSize: Commons.Style.font.bodySmall
       width: root.appsNameWidth
       elide: Text.ElideRight
@@ -263,13 +267,10 @@ Panel {
       }
     }
 
-    Text {
+    PlainText {
       id: pctText
-      textFormat: Text.PlainText
       text: tornadoRow.hasData ? Commons.I18n.formatNumber(tornadoRow.record.pct) + "%" : "—"
-      color: Commons.Color.popups.text
-      font.family: Commons.Style.font.family
-      font.pixelSize: Commons.Style.font.body
+      font.pixelSize: Commons.Style.font.bodySmall
       width: root.appsPctWidth
       horizontalAlignment: Text.AlignRight
       anchors.right: parent.right
@@ -285,6 +286,7 @@ Panel {
 
     PanelToolTip {
       visible: hoverArea.containsMouse
+      fontFamily: root.contentFontFamily
       text: tornadoRow.hasData
         ? (tornadoRow.record.app + " · "
           + strings.t("pulse.keyboard") + " " + Commons.I18n.formatNumber(Math.round(tornadoRow.record.kbShare)) + "% · "
@@ -324,14 +326,11 @@ Panel {
           width: parent ? parent.width : 0
           height: Math.max(titleText.implicitHeight, refreshButton.height)
 
-          Text {
+          PlainText {
             id: titleText
-            textFormat: Text.PlainText
             text: strings.t("pulse.title")
-            color: Commons.Color.popups.text
-            font.family: Commons.Style.font.family
-            font.pixelSize: Commons.Style.font.body
-            font.weight: Font.DemiBold
+            font.pixelSize: Commons.Style.font.title
+            font.bold: true
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
           }
@@ -340,19 +339,18 @@ Panel {
             id: refreshButton
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
+            fontFamily: root.contentFontFamily
             iconText: "\uF021"
             tooltipText: strings.t("pulse.refresh")
             onClicked: root.refresh()
           }
         }
 
-        Text {
-          textFormat: Text.PlainText
+        PlainText {
           text: root.hasData
             ? strings.t("pulse.since").arg(root.formatTime(root.stats.firstTsMs))
             : strings.t("pulse.noData")
           color: Commons.Color.muted
-          font.family: Commons.Style.font.family
           font.pixelSize: Commons.Style.font.bodySmall
         }
 
@@ -388,7 +386,7 @@ Panel {
 
           PanelSectionHeader {
             text: strings.t("pulse.sectionApps")
-            font.family: Commons.Style.font.family
+            fontFamily: root.contentFontFamily
             width: parent.width
           }
 
@@ -401,13 +399,11 @@ Panel {
             readonly property real zoneWidth: width - zoneLeft - (root.appsPctWidth + Commons.Style.space(6))
             readonly property real axisX: zoneLeft + zoneWidth / 2
 
-            Text {
+            PlainText {
               id: keyCaption
-              textFormat: Text.PlainText
               text: strings.t("pulse.keyboard")
               color: Commons.Color.muted
-              font.family: Commons.Style.font.family
-              font.pixelSize: Commons.Style.font.bodySmall
+              font.pixelSize: Commons.Style.font.caption
               width: parent.zoneWidth / 2 - Commons.Style.space(4)
               horizontalAlignment: Text.AlignRight
               x: parent.zoneLeft
@@ -421,12 +417,10 @@ Panel {
               color: Commons.Util.alpha(Commons.Color.accent, 0.35)
             }
 
-            Text {
-              textFormat: Text.PlainText
+            PlainText {
               text: strings.t("pulse.mouse")
               color: Commons.Color.muted
-              font.family: Commons.Style.font.family
-              font.pixelSize: Commons.Style.font.bodySmall
+              font.pixelSize: Commons.Style.font.caption
               x: parent.axisX + Commons.Style.space(4)
               anchors.verticalCenter: parent.verticalCenter
             }
@@ -444,21 +438,19 @@ Panel {
           }
         }
 
-        Text {
+        PlainText {
           width: parent ? parent.width : 0
           visible: root.appsUnavailable && root.apps === null
           wrapMode: Text.Wrap
-          textFormat: Text.PlainText
           text: strings.t("pulse.appsHint")
           color: Commons.Color.muted
-          font.family: Commons.Style.font.family
           font.pixelSize: Commons.Style.font.bodySmall
         }
 
         // ---- Last 7 days: one stacked bar per day, hover for the split.
         PanelSectionHeader {
           text: strings.t("pulse.sectionWeek")
-          font.family: Commons.Style.font.family
+          fontFamily: root.contentFontFamily
         }
 
         Repeater {
@@ -484,7 +476,7 @@ Panel {
         // ---- Total across the week.
         PanelSectionHeader {
           text: strings.t("pulse.sectionTotal")
-          font.family: Commons.Style.font.family
+          fontFamily: root.contentFontFamily
         }
 
         BarRow {
@@ -492,16 +484,14 @@ Panel {
           day: root.total
         }
 
-        Text {
+        PlainText {
           width: parent ? parent.width : 0
           visible: root.lastError !== ""
           wrapMode: Text.Wrap
-          textFormat: Text.PlainText
           text: root.lastError === "noInputBucket"
             ? strings.t("pulse.error.noInputBucket")
             : strings.t("pulse.error.unreachable").arg(root.awUrl)
           color: Commons.Color.urgent
-          font.family: Commons.Style.font.family
           font.pixelSize: Commons.Style.font.bodySmall
         }
       }
