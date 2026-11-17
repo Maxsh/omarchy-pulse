@@ -105,11 +105,12 @@ Manual steps and watcher details: [watcher/README.md](watcher/README.md).
 The widget reads its inline entry in `~/.config/omarchy/shell.json` (hot-reloads):
 
 ```json
-{ "id": "maxsh.pulse", "awUrl": "http://localhost:5600", "pollSeconds": 60 }
+{ "id": "maxsh.pulse", "awUrl": "http://localhost:5600", "pollSeconds": 60, "appLabels": { "com.slk.Tui": "slk" } }
 ```
 
 - `awUrl` — ActivityWatch base URL. For privacy the widget only talks to loopback hosts (`localhost`, `127.x`, `[::1]`); anything else falls back to the default.
 - `pollSeconds` — bar poll interval (minimum 5, default 60).
+- `appLabels` — display-name overrides for Top apps, for classes whose automatic shortening isn't what you want. The raw class stays the identity; only the label changes. ActivityWatch itself has no rename feature (its categorization maps apps to categories, not names), so this lives in the widget.
 
 ## Privacy: counts, never content
 
