@@ -148,6 +148,28 @@ function iso(h, m) {
   check("topApps label overridden", r.apps[0].label, "slk")
 }
 
+// --- resolveAwUrl: the awUrl setting stays local-only ------------------------
+{
+  const D = "http://localhost:5600"
+  check("awUrl empty", resolveAwUrl(""), D)
+  check("awUrl null", resolveAwUrl(null), D)
+  check("awUrl localhost kept", resolveAwUrl("http://localhost:5600"), "http://localhost:5600")
+  check("awUrl localhost bare", resolveAwUrl("http://localhost"), "http://localhost")
+  check("awUrl loopback kept", resolveAwUrl("http://127.0.0.1:9001"), "http://127.0.0.1:9001")
+  check("awUrl https localhost kept", resolveAwUrl("https://localhost:1234"), "https://localhost:1234")
+  check("awUrl userinfo kept", resolveAwUrl("http://user@localhost:5600"), "http://user@localhost:5600")
+  check("awUrl ipv6 loopback kept", resolveAwUrl("http://[::1]:5600"), "http://[::1]:5600")
+  check("awUrl ipv4-mapped kept", resolveAwUrl("http://[::ffff:127.0.0.1]:5600"), "http://[::ffff:127.0.0.1]:5600")
+  check("awUrl remote host", resolveAwUrl("http://example.com:5600"), D)
+  check("awUrl private lan", resolveAwUrl("http://10.0.0.5:5600"), D)
+  check("awUrl prefix trick", resolveAwUrl("http://127.0.0.1.evil.com:5600"), D)
+  check("awUrl other scheme", resolveAwUrl("ftp://localhost"), D)
+  check("awUrl no scheme", resolveAwUrl("javascript:alert(1)"), D)
+  check("awUrl garbage", resolveAwUrl("not a url"), D)
+  check("awUrl bare ipv6", resolveAwUrl("http://::1:5600"), D)
+  check("awUrl ipv6 other", resolveAwUrl("http://[::2]:5600"), D)
+}
+
 if (fails.length) {
   console.error("FAIL\n" + fails.join("\n"))
   process.exit(1)

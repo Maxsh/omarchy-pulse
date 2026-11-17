@@ -26,7 +26,10 @@ BarWidget {
   property var todayMinutes: null
   property var windowSpans: null
 
-  readonly property string awUrl: setting("awUrl", PulseModel.DEFAULT_AW_URL)
+  // User-settable via the widget's inline shell.json entry; resolveAwUrl
+  // keeps it local-only (plugin network rule) — anything but a loopback
+  // http(s) URL falls back to the default.
+  readonly property string awUrl: PulseModel.resolveAwUrl(setting("awUrl", PulseModel.DEFAULT_AW_URL))
   readonly property bool hasData: activity !== null && activity.spanMinutes > 0
 
   // One hue, three intensities: keyboard bright, mouse mid, idle dim.

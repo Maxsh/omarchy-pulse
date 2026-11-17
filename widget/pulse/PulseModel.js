@@ -40,6 +40,39 @@ function normalizeBase(url) {
   return base
 }
 
+// The awUrl setting is user-editable (inline shell.json entry), but plugin
+// network access stays local-only (AGENTS.md): accept http(s) to loopback
+// hosts — localhost, 127.x.x.x, [::1] and its IPv4-mapped form — anything
+// else falls back to the default. A full IPv4 match keeps names like
+// "127.0.0.1.evil.com" from passing a prefix check.
+function resolveAwUrl(raw) {
+  var url = String(raw || "").trim()
+  if (url === "") return DEFAULT_AW_URL
+  var m = url.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):\/\/([^/?#]+)/)
+  if (!m) return DEFAULT_AW_URL
+  var scheme = m[1].toLowerCase()
+  if (scheme !== "http" && scheme !== "https") return DEFAULT_AW_URL
+  var hostPart = m[2]
+  var at = hostPart.lastIndexOf("@")
+  if (at >= 0) hostPart = hostPart.slice(at + 1)
+  var host = hostPart.toLowerCase()
+  if (host.charAt(0) === "[") {
+    // IPv6 literal; a port would follow the closing bracket.
+    var close = host.indexOf("]")
+    if (close < 0) return DEFAULT_AW_URL
+    var literal = host.slice(0, close + 1)
+    if (literal !== "[::1]" && literal.indexOf("[::ffff:127.") !== 0) return DEFAULT_AW_URL
+  } else {
+    // Strip a trailing :port (last colon), then any leftover colon means a
+    // bare IPv6 literal or a malformed host — reject.
+    var colon = host.lastIndexOf(":")
+    if (colon >= 0) host = host.slice(0, colon)
+    if (host === "" || host.indexOf(":") >= 0) return DEFAULT_AW_URL
+    if (host !== "localhost" && !/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return DEFAULT_AW_URL
+  }
+  return url
+}
+
 // First bucket of the stock input type, so hostname changes don't matter.
 function pickInputBucket(buckets) {
   for (var id in buckets) {
