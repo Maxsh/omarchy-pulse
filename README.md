@@ -1,29 +1,35 @@
 # omarchy-pulse
 
-> See the pulse of your day: keyboard, mouse, and total activity as live curves — right in your Omarchy bar.
+> How did your day split between keyboard, mouse, and thinking? A live, private answer — right in your Omarchy bar.
 
-**Status: design phase.** Docs first, code next — see [docs/PLAN.md](docs/PLAN.md) for the draft implementation plan.
+![The pulse bar widget](docs/img/bar.png)
+
+**Status: working, pre-release.** Used daily on Omarchy; v0.1 packaging in progress — see [docs/PLAN.md](docs/PLAN.md).
+
+## The idea
+
+Activity trackers usually count things — keystrokes, clicks, minutes. Counts don't answer the question that matters when you look back at a day: *where did my time go?* omarchy-pulse measures **time**: for every second of your session it works out whether your hands were on the keyboard, on the mouse, or resting (reading, thinking, talking). The widget shows that split as percentages — no scores, no absolute counters, no key contents.
 
 ## What it shows
 
-Three curves, side by side, for the current day or week:
+- **Bar widget** — a compact stacked mini-bar: today's keyboard / mouse / idle split. Hover for exact percentages, left click to open the panel, right click to force a refresh.
+- **Panel**
+  - **Today** — keyboard, mouse, and idle as percentages of your session so far (first input → now; away time over 3 minutes is excluded).
+  - **Top apps** — where today's active time went, per app, each bar split by that app's own keyboard/mouse ratio (needs a window watcher, see Install).
+  - **Last 7 days** — one stacked bar per day, hover for exact numbers.
+  - **Total** — the weekly aggregate.
+  - The title opens the ActivityWatch dashboard for deep dives.
 
-| Curve | Meaning |
-|---|---|
-| **Total** | Active time per interval (any input counts) |
-| **Keyboard** | Seconds your hands were on the keyboard |
-| **Mouse** | Seconds your hands were on the mouse (moving, clicking, scrolling) |
+Everything follows your Omarchy theme.
 
-A compact bar widget shows today's numbers at a glance; clicking it opens a themed panel with the charts.
+![The pulse panel: today's split, top apps, last 7 days](docs/img/panel.png)
 
 ## Why
 
-Omarchy runs Hyprland on Wayland, and Wayland deliberately keeps apps from sniffing global input — so the stock ActivityWatch input watcher (pynput/X11-based) can't see your input there. Existing tools either don't work on Wayland or don't give you keyboard-vs-mouse curves you can keep on screen.
+Omarchy runs Hyprland on Wayland, and Wayland deliberately keeps apps from sniffing global input — so the stock ActivityWatch input watcher (pynput/X11) sees nothing there. omarchy-pulse fills the gap with two small pieces:
 
-omarchy-pulse fills the gap with two small pieces:
-
-1. **`pulse-watcher`** — a tiny evdev-based watcher that attributes your input time per minute (never key contents) and stores it in [ActivityWatch](https://activitywatch.net/), which already solves storage, retention, and a full web dashboard.
-2. **`pulse` widget** — an [Omarchy shell](https://omarchy.org/) plugin (Quickshell/QML) that reads ActivityWatch's local API and draws day/week curves that follow your Omarchy theme.
+1. **`pulse-watcher`** — an evdev-based watcher (systemd user service) that attributes input time per minute — never key contents — and stores it in [ActivityWatch](https://activitywatch.net/), which already handles storage, retention, and a full web dashboard.
+2. **`maxsh.pulse`** — an [Omarchy shell](https://omarchy.org/) plugin (Quickshell/QML) that reads ActivityWatch's local API and renders the bar widget and panel.
 
 ## How activity is measured
 
@@ -52,48 +58,78 @@ Per minute, the watcher stores the stock counters (`presses`, `clicks`, …) plu
 └──────────────────┬─────────────────────┘
                    ▼  per-minute counts + seconds (REST · localhost:5600)
 ┌────────────────────────────────────────┐
-│ ActivityWatch                          │
+│ ActivityWatch (aw-server-rust)         │
 │ storage · REST API · web dashboard     │
+│ window focus from aw-awatcher (opt.)   │
 └──────────────────┬─────────────────────┘
-                   ▼  HTTP/JSON, polled every 30–60 s
+                   ▼  HTTP/JSON, polled every 60 s and on panel open
 ┌────────────────────────────────────────┐
 │ Omarchy shell widget (Quickshell/QML)  │
-│ bar text · day/week chart popup        │
+│ bar mini-bar · popup panel             │
 └────────────────────────────────────────┘
 ```
 
-## Privacy: counts, never content
+Events go into the stock `aw-watcher-input_{hostname}` bucket with the stock keys (`presses`, `clicks`, `deltaX`, …) plus additive `kbS` / `mouseS` / `bothS`, so ActivityWatch's own views keep working.
 
-- The watcher counts `EV_KEY` press events and immediately discards *which* key was pressed. No keylogging, ever — not even in debug logs.
-- Mouse is counted as clicks, scroll steps, and accumulated pointer distance.
-- Everything stays local: ActivityWatch's localhost API and its local SQLite files.
-- It's a normal systemd user service — stop it any time.
-
-## Roadmap
-
-- [x] Phase 0 — project kickoff, docs (this repo state)
-- [x] Phase 1 — `pulse-watcher` MVP: evdev → ActivityWatch, systemd user service
-- [x] Phase 2 — bar widget MVP: keyboard/mouse/idle split as a stacked mini-bar + percentage popup
-- [x] Phase 3 — popup: today's numbers, last-7-days bars with hover tooltips, weekly total bar, refresh action
-- [x] Per-app breakdown — "Top apps" (today) joining window focus with input minutes ([PR](../../pulls))
-- [x] Input-time attribution — keyboard/mouse measured in seconds via a device-ownership timeline inspired by HCI's Keystroke-Level Model (see "How activity is measured")
-- [ ] Phase 4 — polish: i18n, per-app breakdown (via `aw-watcher-window-hyprland`), packaging, screenshots
-
-Details, decisions, and acceptance criteria: [docs/PLAN.md](docs/PLAN.md).
-
-## Requirements (planned)
+## Requirements
 
 - Omarchy (Hyprland + Omarchy shell)
 - [ActivityWatch](https://activitywatch.net/) — `omarchy pkg aur add activitywatch-bin`
-- Python 3.11+ with `python-evdev` — `omarchy pkg add python-evdev`
-- Your user in the `input` group (so the watcher can read device events)
+- [`uv`](https://docs.astral.sh/uv/) — manages the watcher's Python 3.11+ venv and `evdev`
+- Your user in the `input` group — `sudo usermod -aG input $USER`, then log out and back in
+- Optional, for Top apps: a window watcher writing a `currentwindow` bucket — `aw-awatcher` ships with activitywatch-bin and the install script sets it up
+
+## Install
+
+One step (also the update path — re-run after `git pull`):
+
+```bash
+git clone https://github.com/Maxsh/omarchy-pulse && cd omarchy-pulse
+install/install.sh
+```
+
+The script builds the watcher's venv, installs the systemd user units (with `ExecStart` rewritten to this clone's path — it never touches an existing ActivityWatch setup), installs the bar widget, and warns about the `input` group. Then add **Pulse** (category *Stats*) to your bar if it isn't there yet:
+
+```bash
+omarchy bar move maxsh.pulse --section right
+```
+
+Manual steps and watcher details: [watcher/README.md](watcher/README.md).
+
+### Settings
+
+The widget reads its inline entry in `~/.config/omarchy/shell.json` (hot-reloads):
+
+```json
+{ "id": "maxsh.pulse", "awUrl": "http://localhost:5600", "pollSeconds": 60 }
+```
+
+- `awUrl` — ActivityWatch base URL. For privacy the widget only talks to loopback hosts (`localhost`, `127.x`, `[::1]`); anything else falls back to the default.
+- `pollSeconds` — bar poll interval (minimum 5, default 60).
+
+## Privacy: counts, never content
+
+- The watcher sees key *events*, never records *which* key — not in storage, logs, or debug output. A test asserts emitted events contain only count/seconds fields.
+- Mouse activity is clicks, scroll steps, and pointer distance.
+- Everything stays local: ActivityWatch on `localhost:5600` and its local database. The widget talks to nothing else, and never reads browser-tab data.
+- Stop it any time: `systemctl --user stop pulse-watcher`.
+
+## Roadmap
+
+- [x] Phase 1 — watcher: evdev → ActivityWatch, systemd user service
+- [x] Phase 2 — bar widget: keyboard/mouse/idle mini-bar
+- [x] Phase 3 — panel: today, last 7 days, weekly total
+- [x] Phase 4 — input-time attribution (HCI-based), Top apps, polish
+- [ ] Phase 5 — v0.1: one-step install, Ukrainian translation, screenshots, license, release
+
+Decisions and details: [docs/PLAN.md](docs/PLAN.md).
 
 ## Related
 
 - [ActivityWatch](https://activitywatch.net/) — local time/data tracker used as the storage backend
-- [aw-watcher-window-hyprland](https://docs.activitywatch.net/en/latest/watchers.html) — community window watcher for Hyprland (used in Phase 4 for per-app stats)
+- [aw-awatcher](https://github.com/2e3s/aw-awatcher) — Wayland-native window/AFK watcher (powers Top apps)
 - Omarchy shell plugin docs — see `~/.agents/skills/omarchy/plugins.md` on an Omarchy machine with this skill installed
 
 ## License
 
-MIT — to be added with the first code drop.
+[MIT](LICENSE).
