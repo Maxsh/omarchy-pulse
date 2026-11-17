@@ -23,6 +23,7 @@ Give an Omarchy user a live, local view of their day: how active they were, and 
 | D9 | Window source | The system's own window watcher: the `aw-awatcher.service` user unit runs `aw-awatcher` (Wayland-native, ships with activitywatch-bin), writing the stock `currentwindow` bucket | The popup joins input minutes onto its focus spans and reads only `data.app`. A custom app-only window watcher was built first, then dropped — it duplicated awatcher and double-wrote the shared bucket with different semantics (titles on/off). The widget auto-discovers any `currentwindow` bucket, so it also works with `aw-watcher-window` or future replacements. |
 | D10 | Keyboard/mouse split | **Seconds, not counts** (2026-11-13): a device-ownership timeline (`timeline.py`) reconstructs per-second which device the hands were on. Constants from HCI research — Keystroke-Level Model (Card, Moran & Newell 1980; Kieras 2001, https://web.eecs.umich.edu/~kieras/docs/GOMS/KLM.pdf): homing H = 0.4 s credited to the device switched *to*; typing bursts end after ~2 s keyboard / ~1 s mouse silence plus a 1 s tail; keys within 0.3 s of a click or during a held button (Shift+drag, Ctrl+click) count as mouse; motion is real at ≥ 1 mm / 250 ms (kernel resolution, mice assumed 1000 DPI); autorepeat and held buttons are continuous keep-alives; rapid alternation (flips faster than H, e.g. WASD + aiming) is binned as `bothS` and split evenly for display. Event data gains additive keys `kbS`/`mouseS`/`bothS` (stock keys untouched); minutes flush only after gap+tail (`RESOLVE_S`) so boundary bursts resolve. Widget: percentages come from seconds; gaps > 180 s (AW AFK threshold) drop out of the span as "away"; duplicate minutes (retry/late flush) collapse or merge. The old dominant-count classification remains as fallback for count-only events. Review findings that motivated this: counts aren't comparable units, minute ties leaned keyboard, touchpad touch-down jumps and tap-to-click/two-finger scroll were miscounted. |
 | D11 | Widget settings | **Inline `shell.json` entry** (2026-11-17): the bar host hands each widget its layout entry as `settings`, read via the base `setting()` API (the clock plugin is the reference). The widget honors `awUrl`, `pollSeconds`, and `appLabels`; `resolveAwUrl` validates the URL local-only (http(s) to `localhost` / `127.x` / `[::1]`, else the default) to keep plugin network access loopback-bound, and `sanitizeAppLabels` accepts only a plain string→string map (capped count and length) for Top-app display names. The manifest's `settingsForm`/`schema` hooks are parsed by the shell but not yet consumed by any settings UI, so values are edited in `~/.config/omarchy/shell.json` (hot-reloads). Rejected: a bespoke in-panel editor (scope creep), a plugin-local JSON config (duplicates what shell.json already does), and relying on ActivityWatch for renames (its categorization maps apps to categories, not display names — no rename feature exists). |
+| D12 | "Thinking" facet | **Rejected** (2026-11-13, label review 2026-11-17): input gaps cannot separate on-task thinking from distraction, so a "thinking" share would be a guess dressed up as a measurement. Pause research interprets gaps with eye-tracking or think-aloud protocols; the KLM's mental operator (M ≈ 1.2 s) is a prediction rule, not a measured motor time; experience sampling puts mind-wandering near half of waking time (Killingsworth & Gilbert 2010). Idle stays "no input" — an honest residual — and away stays the > 180 s cut; the label stays "Idle" for now. Honest refinements recorded but not adopted: renaming Idle to "Pause", splitting away via aw-awatcher's AFK/lock state (read-only), subtracting call/media time, and an OpenCode agent-busy stat as its *own* measured stat — never presented as thinking. |
 
 ## 3. Architecture
 
@@ -97,9 +98,9 @@ Service: `watcher/systemd/pulse-watcher.service` (user unit): `Restart=on-failur
 |---|---|
 | Bar item | Stacked mini-bar — keyboard/mouse/idle as percentages of the session, one accent hue at three intensities (theme-safe); percentage tooltip; left click opens the panel, right click forces a refresh; fixed-width row. |
 | Panel | Popup panel: header (title links to the ActivityWatch dashboard, `PanelActionButton` refresh), "Since %1" subtitle, today's percentage rows, **Top apps** tornado section (per-app share of active time, each bar split by the app's own keyboard/mouse ratio, hover tooltips, hidden-with-hint while no window bucket exists), "Last 7 days" stacked bars (localized day labels, `PanelToolTip` hover, today highlighted), weekly "Total" bar, error reporting, keyboard dismissal. |
-| Data | `PulseModel.fetch(awUrl, daysBack)` — bucket discovery by type, event fetch capped with an explicit positive limit, per-day spans from per-minute seconds (`kbS`/`mouseS`/`bothS`; legacy count fallback), AFK-gap exclusion, duplicate-minute merge, `topApps` window join. The pure JS stays in `PulseModel.js` and runs under node (`widget/tests/pulse-model.test.js`). |
+| Data | `PulseModel.fetch(awUrl, daysBack)` — bucket discovery by type, event fetch capped with an explicit positive limit, per-day spans from per-minute seconds (`kbS`/`mouseS`/`bothS`; legacy count fallback), AFK-gap exclusion, duplicate-minute merge, `topApps` window join. The pure JS stays in `PulseModel.js` and runs under node (`tests/widget/pulse-model.test.js`). |
 | Settings | Inline `shell.json` entry via the base `setting()` API (D11): `awUrl` (validated loopback-only by `PulseModel.resolveAwUrl`) and `pollSeconds` (min 5 s, default 60 s). The shell parses the manifest's `settingsForm`/`schema` but no settings UI consumes them yet — edit values in `~/.config/omarchy/shell.json`; it hot-reloads. |
-| i18n | Plugin-local flat catalogs (`i18n/en.json`, `i18n/uk.json`) read via `Commons.Translations`; numbers via `Commons.I18n.formatNumber`. Key and placeholder parity enforced by `widget/tests/i18n.test.js`. |
+| i18n | Plugin-local flat catalogs (`i18n/en.json`, `i18n/uk.json`) read via `Commons.Translations`; numbers via `Commons.I18n.formatNumber`. Key and placeholder parity enforced by `tests/widget/i18n.test.js`. |
 
 ## 6. Phases
 
@@ -138,6 +139,41 @@ Repo, README, AGENTS.md, this plan.
 - **Screenshots:** bar + panel on Gruvbox and Catppuccin Latte, plus the Ukrainian panel (`docs/img/`), gallery in the README.
 - **Release:** `main` pushed, merged feature branches deleted, tagged **v0.1.0**, [GitHub release published](https://github.com/Maxsh/omarchy-pulse/releases/tag/v0.1.0) (as the `Maxsh` account, switched back after). CI green.
 - **Remaining (deliberately):** share on Omarchy community channels — the agreed last step, once the release has settled. A fresh-clone install rehearsal on a second machine is the only untested corner.
+
+### Phase 6 — marketplace release v0.1.1 (2026-11-17)
+
+**Why the layout changed.** `omarchy plugin add <url>` clones the whole repo into
+`~/.config/omarchy/plugins/<id>/` and requires `manifest.json` at the repo root
+(the plugin *is* the repo). Two constraints shaped the install story:
+
+- The plugin validator refuses any symlink inside the plugin folder — a uv
+  `.venv` is full of them, so the venv moved **outside**: `uv sync
+  --no-editable` into `~/.local/share/omarchy-pulse/venv`, and the unit's
+  `ExecStart` points there (repo-location-independent).
+- The shell hot-reloads plugins via a recursive inotify watch on the plugins
+  directory (`PluginRegistry.qml`), so the watcher must write nothing into the
+  plugin folder at runtime — hence `--no-editable` (runs from a copy in the
+  venv, no `__pycache__` in the checkout).
+
+Shipped:
+
+- Plugin files at the repo root (`manifest.json`, QML, `PulseModel.js`,
+  `i18n/`); watcher, install, docs, and tests stay as subfolders and are inert
+  to the shell. Widget tests moved to `tests/widget/` (node).
+- `install.sh` reworked: external venv, generated `pulse-watcher.service`
+  (ExecStart → external venv), `--no-widget` flag, and detection of a
+  git-managed install — it never copies over a marketplace checkout, so
+  `omarchy plugin update` keeps working.
+- `install/uninstall.sh`: stops and removes the watcher service and venv;
+  ActivityWatch and its data untouched. Run before `omarchy plugin remove`.
+- The widget's "no input data" hint names the watcher install command.
+- Rehearsed on this machine: `omarchy plugin add` → `install.sh` → `plugin
+  update` → `uninstall.sh`, then restored to the marketplace-style install.
+- Submission: marketplace issue form, category Productivity, tags
+  `activitywatch` / `privacy` / `input`, Gruvbox panel shot as preview; the
+  watcher dependency stated up front (the widget alone shows "no input data").
+- Announce in GitHub Discussions "Show and tell" only after the listing is
+  approved (basecamp/omarchy, structure of the existing plugin posts).
 
 ## 7. Risks & mitigations
 

@@ -49,6 +49,18 @@ Raw counts alone can't answer "was I typing or mousing?" — one key press and o
 
 Per minute, the watcher stores the stock counters (`presses`, `clicks`, …) plus `kbS` / `mouseS` / `bothS` — seconds per device class. Keyboard, mouse, and idle are then measured in the same unit and always add up to the span. Classification never sees *which* key was pressed — timing and counts only.
 
+### What "idle" means — and why there is no "thinking"
+
+Idle is simply *no input*: time inside your session when your hands were on neither device. That inevitably includes thinking, reading, and reviewing, alongside daydreaming, a glance at your phone, or a quick chat.
+
+We considered splitting out a "thinking" share and decided against it, because input data cannot measure it honestly:
+
+- **No research measures thinking from input gaps alone.** Writing-process pause studies interpret pauses with eye-tracking or think-aloud protocols on top of keystroke logs; the pause by itself only says the hands stopped.
+- **The KLM's mental operator (M ≈ 1.2 s) is a prediction rule, not a measurement.** Unlike the motor times this project uses (keystroke, homing, pointing), its placement is the model's weakest part by its own authors' account (Kieras 2001).
+- **A pause is genuinely ambiguous.** Experience-sampling research finds minds wander roughly half of waking time (Killingsworth & Gilbert 2010). Even a short pause in the same window can be focus or drift.
+
+A "thinking" number would be a guess dressed up as a measurement, which runs against what this widget is for. So idle stays an honest residual. Only gaps longer than 3 minutes are treated differently: they count as *away* and drop out of the span.
+
 ## Architecture
 
 ```
@@ -85,20 +97,20 @@ Events go into the stock `aw-watcher-input_{hostname}` bucket with the stock key
 
 ## Install
 
-One step (also the update path — re-run after `git pull`):
+Install the plugin the Omarchy way, then set up the watcher it needs:
 
 ```bash
-git clone https://github.com/Maxsh/omarchy-pulse && cd omarchy-pulse
-install/install.sh
+omarchy plugin add https://github.com/Maxsh/omarchy-pulse --enable
+~/.config/omarchy/plugins/maxsh.pulse/install/install.sh
 ```
 
-The script builds the watcher's venv, installs the systemd user units (with `ExecStart` rewritten to this clone's path — it never touches an existing ActivityWatch setup), installs the bar widget, and warns about the `input` group. Then add **Pulse** (category *Stats*) to your bar if it isn't there yet:
+The first command clones this repo into `~/.config/omarchy/plugins/maxsh.pulse` (the plugin *is* the repo) and adds the widget to your bar. The second builds the watcher's venv — outside the plugin folder — and installs the systemd user units: `pulse-watcher`, plus ActivityWatch's server and window watcher only when the machine has none.
 
-```bash
-omarchy bar move maxsh.pulse --section right
-```
+Then log out and back in if your user isn't in the `input` group yet (`sudo usermod -aG input $USER`) — the watcher reads `/dev/input/event*`. Within a couple of minutes of typing, the widget comes alive.
 
-Manual steps and watcher details: [watcher/README.md](watcher/README.md).
+- **Updating:** `omarchy plugin update maxsh.pulse`, then re-run `install.sh` to rebuild the watcher.
+- **Dev checkout instead:** clone the repo anywhere and run `install/install.sh` — it copies the plugin into place and points the service at the venv it builds. Manual steps: [watcher/README.md](watcher/README.md).
+- **Removing:** run `install/uninstall.sh` (stops the watcher, leaves ActivityWatch and its data untouched), then `omarchy plugin remove maxsh.pulse`.
 
 ### Settings
 
