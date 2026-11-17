@@ -1,5 +1,6 @@
 {
   "pulse.title": "Pulse",
+  "pulse.openActivityWatch": "Open ActivityWatch",
   "pulse.since": "Since %1",
   "pulse.noData": "No data yet — waiting for pulse-watcher",
   "pulse.keyboard": "Keyboard",

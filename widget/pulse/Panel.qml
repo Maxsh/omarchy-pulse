@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons as Commons
 import qs.Ui
+import "PulseModel.js" as PulseModel
 
 // The pulse summary popup.
 //
@@ -38,6 +39,9 @@ Panel {
   readonly property bool appsUnavailable: hostWidget && hostWidget.appsUnavailable === true
   readonly property string lastError: hostWidget ? hostWidget.lastError : ""
   readonly property string awUrl: hostWidget ? hostWidget.awUrl : ""
+  // The ActivityWatch web UI the title links to — the same server the
+  // widget reads from, so it follows the awUrl setting.
+  readonly property string awLinkUrl: PulseModel.normalizeBase(root.awUrl)
   readonly property bool hasData: stats !== null && stats.spanMinutes > 0
 
   // Fixed column widths so the tornado's central axis aligns across rows.
@@ -58,6 +62,13 @@ Panel {
   // fetch also refreshes today, which the bar's poll keeps alive meanwhile.
   function refresh() {
     if (hostWidget && typeof hostWidget.refreshWeek === "function") hostWidget.refreshWeek()
+  }
+
+  // The title opens the ActivityWatch dashboard in the user's browser.
+  // execArgv runs the URL as a literal argv entry — no shell
+  // re-tokenization — even though it comes from a user-editable setting.
+  function openActivityWatch() {
+    Commons.Util.execArgv(["xdg-open", root.awLinkUrl])
   }
 
   function formatTime(ms) {
@@ -321,7 +332,8 @@ Panel {
         anchors.fill: parent
         spacing: Commons.Style.space(10)
 
-        // ---- Header: title on the left, refresh action on the right.
+        // ---- Header: the title links to the ActivityWatch dashboard,
+        // refresh action on the right.
         Item {
           width: parent ? parent.width : 0
           height: Math.max(titleText.implicitHeight, refreshButton.height)
@@ -331,8 +343,26 @@ Panel {
             text: strings.t("pulse.title")
             font.pixelSize: Commons.Style.font.title
             font.bold: true
+            // Link affordance: underline on hover, hand cursor below.
+            font.underline: titleMouse.containsMouse
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
+          }
+
+          MouseArea {
+            id: titleMouse
+            anchors.fill: titleText
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openActivityWatch()
+          }
+
+          PanelToolTip {
+            visible: titleMouse.containsMouse
+            fontFamily: root.contentFontFamily
+            // Left-aligned so it sits under the title, not the row's middle.
+            x: 0
+            text: strings.t("pulse.openActivityWatch")
           }
 
           PanelActionButton {
