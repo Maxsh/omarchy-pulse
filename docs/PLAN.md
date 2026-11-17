@@ -135,7 +135,7 @@ Repo, README, AGENTS.md, this plan.
 - **i18n:** Ukrainian catalog (`i18n/uk.json`); key + placeholder parity against `en.json` enforced by `widget/tests/i18n.test.js` (CI).
 - **Settings (Q3 → D11):** `awUrl` (validated loopback-only) and `pollSeconds` honored from the inline `shell.json` entry; documented in the README.
 - **Packaging/legal:** MIT `LICENSE`; manifest descriptions now describe the time split. An AUR PKGBUILD is deliberately deferred — the install script covers it.
-- **Screenshots:** bar + panel (`docs/img/`), linked from the README.
+- **Screenshots:** bar + panel on Gruvbox and Catppuccin Latte, plus the Ukrainian panel (`docs/img/`), linked from the README; Ukrainian verified live (day labels included).
 - **Release:** push `main`, delete merged feature branches, tag `v0.1.0`, GitHub release (as the `Maxsh` account, switch back after).
 - **Acceptance:** fresh clone → `install/install.sh` → re-login → widget live within ~2 minutes of input; script re-run is a no-op; CI green (privacy schema test, model tests, i18n parity); README matches reality; tag + release exist.
 - **After acceptance:** share on Omarchy community channels — deliberately the last step, only once everything above is confirmed.

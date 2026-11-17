@@ -20,9 +20,13 @@ Activity trackers usually count things — keystrokes, clicks, minutes. Counts d
   - **Total** — the weekly aggregate.
   - The title opens the ActivityWatch dashboard for deep dives.
 
-Everything follows your Omarchy theme.
+Everything follows your Omarchy theme, and the panel speaks English and Ukrainian:
 
-![The pulse panel: today's split, top apps, last 7 days](docs/img/panel.png)
+<p align="center">
+  <img src="docs/img/panel.png" alt="The pulse panel on Gruvbox: today's split, top apps, last 7 days" width="250">
+  <img src="docs/img/panel-latte.png" alt="The pulse panel on Catppuccin Latte" width="250">
+  <img src="docs/img/panel-uk.png" alt="The pulse panel in Ukrainian" width="250">
+</p>
 
 ## Why
 
