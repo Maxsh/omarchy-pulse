@@ -1,6 +1,6 @@
 # omarchy-pulse — Implementation Plan (draft)
 
-Version 0.2 · 2026-11-17 · Status: implementation — Phase 5 (v0.1 release)
+Version 0.2 · 2026-11-17 · Status: v0.1.0 released — maintenance
 
 ## 1. Goal
 
@@ -128,17 +128,16 @@ Repo, README, AGENTS.md, this plan.
 - **Per-app breakdown:** "Top apps" section in the popup — window-focus spans from the system awatcher bucket joined onto today's input minutes; top 5 + "other", share-of-active bar split by each app's own keyboard/mouse ratio, hover tooltips; live via the 60 s poll (self-heals once the window bucket exists); hidden-with-hint while it doesn't.
 - **Widget polish (2026-11-17):** panel typography unified on Omarchy font tokens; the panel title opens the ActivityWatch dashboard; event fetches bounded with an explicit positive limit (aw-server-rust rejects the "no limit" sentinel); `slk` pinned-class app label fix.
 
-### Phase 5 — release v0.1 (in progress)
+### Phase 5 — release v0.1 — **done (2026-11-17)**
 
 - **Docs:** the README reflects the shipped widget (mini-bar, Top apps, seconds-based measurement); this plan updated (§1, §3, §5.2, D11, closed questions).
-- **One-step install:** `install/install.sh` — `uv sync`, systemd units with `ExecStart` rewritten to the clone's path, `aw-server`/`aw-awatcher` units only when the machine has none (never clobber an existing ActivityWatch setup), widget install, `input`-group check; safe to re-run, so an update is `git pull` + the same command. Ships `install/aw-awatcher.service` so Top apps works out of the box.
-- **i18n:** Ukrainian catalog (`i18n/uk.json`); key + placeholder parity against `en.json` enforced by `widget/tests/i18n.test.js` (CI).
-- **Settings (Q3 → D11):** `awUrl` (validated loopback-only) and `pollSeconds` honored from the inline `shell.json` entry; documented in the README.
+- **One-step install:** `install/install.sh` — `uv sync`, systemd units with `ExecStart` rewritten to the clone's path, `aw-server`/`aw-awatcher` units only when the machine has none (never clobber an existing ActivityWatch setup), widget install, `input`-group check; safe to re-run, so an update is `git pull` + the same command. Ships `install/aw-awatcher.service` so Top apps works out of the box. Verified on the dev machine (re-run = no-op for units, services stay active).
+- **i18n:** Ukrainian catalog (`i18n/uk.json`); key + placeholder parity against `en.json` enforced by `widget/tests/i18n.test.js` (CI). Verified live: all strings render, day labels follow the Ukrainian locale; the shell re-renders on language switch without a restart.
+- **Settings (Q3 → D11):** `awUrl` (validated loopback-only by `resolveAwUrl`, with tests for prefix tricks and IPv6 forms) and `pollSeconds` honored from the inline `shell.json` entry; documented in the README.
 - **Packaging/legal:** MIT `LICENSE`; manifest descriptions now describe the time split. An AUR PKGBUILD is deliberately deferred — the install script covers it.
-- **Screenshots:** bar + panel on Gruvbox and Catppuccin Latte, plus the Ukrainian panel (`docs/img/`), linked from the README; Ukrainian verified live (day labels included).
-- **Release:** push `main`, delete merged feature branches, tag `v0.1.0`, GitHub release (as the `Maxsh` account, switch back after).
-- **Acceptance:** fresh clone → `install/install.sh` → re-login → widget live within ~2 minutes of input; script re-run is a no-op; CI green (privacy schema test, model tests, i18n parity); README matches reality; tag + release exist.
-- **After acceptance:** share on Omarchy community channels — deliberately the last step, only once everything above is confirmed.
+- **Screenshots:** bar + panel on Gruvbox and Catppuccin Latte, plus the Ukrainian panel (`docs/img/`), gallery in the README.
+- **Release:** `main` pushed, merged feature branches deleted, tagged **v0.1.0**, [GitHub release published](https://github.com/Maxsh/omarchy-pulse/releases/tag/v0.1.0) (as the `Maxsh` account, switched back after). CI green.
+- **Remaining (deliberately):** share on Omarchy community channels — the agreed last step, once the release has settled. A fresh-clone install rehearsal on a second machine is the only untested corner.
 
 ## 7. Risks & mitigations
 

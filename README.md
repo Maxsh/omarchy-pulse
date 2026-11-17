@@ -4,7 +4,7 @@
 
 ![The pulse bar widget](docs/img/bar.png)
 
-**Status: working, pre-release.** Used daily on Omarchy; v0.1 packaging in progress — see [docs/PLAN.md](docs/PLAN.md).
+**Status: v0.1.0.** Used daily on Omarchy — see [docs/PLAN.md](docs/PLAN.md) and the [release](https://github.com/Maxsh/omarchy-pulse/releases/tag/v0.1.0).
 
 ## The idea
 
@@ -124,7 +124,8 @@ The widget reads its inline entry in `~/.config/omarchy/shell.json` (hot-reloads
 - [x] Phase 2 — bar widget: keyboard/mouse/idle mini-bar
 - [x] Phase 3 — panel: today, last 7 days, weekly total
 - [x] Phase 4 — input-time attribution (HCI-based), Top apps, polish
-- [ ] Phase 5 — v0.1: one-step install, Ukrainian translation, screenshots, license, release
+- [x] Phase 5 — v0.1: one-step install, Ukrainian translation, screenshots, license, release
+- [ ] Share on Omarchy community channels
 
 Decisions and details: [docs/PLAN.md](docs/PLAN.md).
 
