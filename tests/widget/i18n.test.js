@@ -5,7 +5,7 @@
 const fs = require("fs")
 const path = require("path")
 
-const dir = path.join(__dirname, "..", "pulse", "i18n")
+const dir = path.join(__dirname, "..", "..", "i18n")
 const base = JSON.parse(fs.readFileSync(path.join(dir, "en.json"), "utf8"))
 const baseKeys = Object.keys(base)
 

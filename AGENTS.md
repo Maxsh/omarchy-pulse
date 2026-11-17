@@ -15,12 +15,21 @@ Guidance for AI coding agents (and human contributors) working in this repositor
 ## Repository layout (target state)
 
 ```
+manifest.json, *.qml,    Omarchy plugin at the repo root (manifest + QML +
+PulseModel.js, i18n/       PulseModel.js + i18n catalogs) — `omarchy plugin add`
+                           clones the whole repo, so the plugin IS the root
 watcher/pulse_watcher/   Python package: device discovery, per-minute aggregation, ActivityWatch client
 watcher/systemd/         pulse-watcher.service (systemd user unit)
-widget/                  Omarchy shell plugin source (QML); installed into ~/.config/omarchy/plugins/
-install/                 install/update scripts (Phase 2+)
+install/                 install/update/uninstall scripts
+tests/widget/            widget model + i18n tests (node)
 docs/                    plan and design notes
 ```
+
+The watcher's venv lives **outside** the plugin folder
+(`~/.local/share/omarchy-pulse/venv`, created by `install.sh` with
+`uv sync --no-editable`): the plugin validator refuses symlinks inside a
+plugin folder, and the shell hot-reloads plugins via recursive inotify, so
+nothing may write into the plugin directory at runtime.
 
 ## Golden rules
 
@@ -77,7 +86,7 @@ uv run pulse-watcher --verbose
 
 - Watcher: unit-test the aggregator with synthetic evdev events (per-minute buckets, AFK transitions, multi-device summing). Unit-test the timeline with synthetic action streams — the worked examples of docs/PLAN.md D10 are the test names in `watcher/tests/test_timeline.py`. Integration-test the AW client against a local HTTP stub — CI must not require a running ActivityWatch.
 - Add a test asserting the watcher's emitted event schema contains only count/seconds fields (privacy rule #1).
-- Widget: no automated UI tests planned; rely on `qmllint` + manual checks after hot-reload. Keep logic testable as described under Conventions — the pure model logic runs under node (`widget/tests/pulse-model.test.js`, also in CI).
+- Widget: no automated UI tests planned; rely on `qmllint` + manual checks after hot-reload. Keep logic testable as described under Conventions — the pure model logic runs under node (`tests/widget/pulse-model.test.js`, also in CI).
 
 ## CI
 

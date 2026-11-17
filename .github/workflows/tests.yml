@@ -33,6 +33,6 @@ jobs:
         with:
           node-version: "22"
       - name: PulseModel logic tests
-        run: node widget/tests/pulse-model.test.js
+        run: node tests/widget/pulse-model.test.js
       - name: i18n catalogs in sync
-        run: node widget/tests/i18n.test.js
+        run: node tests/widget/i18n.test.js

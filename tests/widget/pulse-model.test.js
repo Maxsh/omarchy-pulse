@@ -4,7 +4,7 @@
 const fs = require("fs")
 const path = require("path")
 
-const src = fs.readFileSync(path.join(__dirname, "..", "pulse", "PulseModel.js"), "utf8")
+const src = fs.readFileSync(path.join(__dirname, "..", "..", "PulseModel.js"), "utf8")
 eval(src)
 
 const fails = []

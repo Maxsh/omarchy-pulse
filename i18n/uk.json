@@ -14,5 +14,5 @@
   "pulse.refresh": "Оновити",
   "pulse.noDataDay": "Немає даних",
   "pulse.error.unreachable": "ActivityWatch недоступний за адресою %1",
-  "pulse.error.noInputBucket": "У ActivityWatch немає бакета вводу — чи запущено pulse-watcher?"
+  "pulse.error.noInputBucket": "Даних вводу ще немає — запустіть watcher: виконайте install/install.sh у теці плаґіна"
 }
