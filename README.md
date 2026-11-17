@@ -138,7 +138,7 @@ The widget reads its inline entry in `~/.config/omarchy/shell.json` (hot-reloads
 - [x] Phase 3 — panel: today, last 7 days, weekly total
 - [x] Phase 4 — input-time attribution (HCI-based), Top apps, polish
 - [x] Phase 5 — v0.1: one-step install, Ukrainian translation, screenshots, license, release
-- [ ] Share on Omarchy community channels
+- [ ] Marketplace listing ([submitted for review](https://github.com/omacom/omarchy-plugin-marketplace/issues/15208)) — announce once approved
 
 Decisions and details: [docs/PLAN.md](docs/PLAN.md).
 

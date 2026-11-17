@@ -169,8 +169,8 @@ Shipped:
 - The widget's "no input data" hint names the watcher install command.
 - Rehearsed on this machine: `omarchy plugin add` → `install.sh` → `plugin
   update` → `uninstall.sh`, then restored to the marketplace-style install.
-- Submission: marketplace issue form, category Productivity, tags
-  `activitywatch` / `privacy` / `input`, Gruvbox panel shot as preview; the
+- Submission: [marketplace issue #15208](https://github.com/omacom/omarchy-plugin-marketplace/issues/15208), category Productivity, tags
+  `Bar` / `Quickshell` / `Hyprland` (+ suggested `ActivityWatch` tag), Gruvbox panel shot as preview; the
   watcher dependency stated up front (the widget alone shows "no input data").
 - Announce in GitHub Discussions "Show and tell" only after the listing is
   approved (basecamp/omarchy, structure of the existing plugin posts).
