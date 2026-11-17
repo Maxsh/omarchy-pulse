@@ -1,0 +1,18 @@
+{
+  "pulse.title": "Пульс",
+  "pulse.openActivityWatch": "Відкрити ActivityWatch",
+  "pulse.since": "З %1",
+  "pulse.noData": "Даних ще немає — чекаємо на pulse-watcher",
+  "pulse.keyboard": "Клавіатура",
+  "pulse.mouse": "Мишка",
+  "pulse.idle": "Пауза",
+  "pulse.sectionApps": "Топ застосунків",
+  "pulse.appsHint": "Для «Топ застосунків» потрібне відстеження вікон — його забезпечує awatcher, який входить до складу ActivityWatch",
+  "pulse.other": "Інше",
+  "pulse.sectionWeek": "Останні 7 днів",
+  "pulse.sectionTotal": "Всього",
+  "pulse.refresh": "Оновити",
+  "pulse.noDataDay": "Немає даних",
+  "pulse.error.unreachable": "ActivityWatch недоступний за адресою %1",
+  "pulse.error.noInputBucket": "У ActivityWatch немає бакета вводу — чи запущено pulse-watcher?"
+}
