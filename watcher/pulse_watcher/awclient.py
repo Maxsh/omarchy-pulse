@@ -22,6 +22,14 @@ BUCKET_TYPE = "os.hid.input"
 #: HTTP statuses returned by a successful bucket request: created / already exists.
 _BUCKET_OK = (200, 304)
 
+#: Most response bytes ever read from the server (only used for diagnostics).
+_MAX_BODY_BYTES = 2000
+
+
+def _read_capped(response) -> str:
+    """Read at most _MAX_BODY_BYTES of a response, so a huge body cannot exhaust memory."""
+    return response.read(_MAX_BODY_BYTES).decode("utf-8", "replace")
+
 
 class ActivityWatchClient:
     def __init__(
@@ -50,9 +58,12 @@ class ActivityWatchClient:
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
-                return response.status, response.read().decode("utf-8", "replace")[:2000]
+                return response.status, _read_capped(response)
         except urllib.error.HTTPError as exc:  # 3xx/4xx/5xx — still a server answer
-            return exc.code, exc.read().decode("utf-8", "replace")[:2000]
+            try:
+                return exc.code, _read_capped(exc)
+            finally:
+                exc.close()
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             return 0, str(getattr(exc, "reason", exc))
 

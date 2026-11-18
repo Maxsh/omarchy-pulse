@@ -1,13 +1,15 @@
 """ActivityWatchClient + EventShipper tests against a stub HTTP server (no real AW needed)."""
 
+import io
 import json
+import logging
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import ClassVar
 
 import pytest
 
-from pulse_watcher.awclient import ActivityWatchClient, EventShipper
+from pulse_watcher.awclient import _MAX_BODY_BYTES, ActivityWatchClient, EventShipper, _read_capped
 from pulse_watcher.events import build_event
 
 BUCKET = "aw-watcher-input_testhost"
@@ -17,18 +19,24 @@ ZERO = {"presses": 0, "clicks": 0, "deltaX": 0, "deltaY": 0, "scrollX": 0, "scro
 class _Recorder(BaseHTTPRequestHandler):
     requests: ClassVar[list[tuple[str, str, object]]] = []
     status_by_path: ClassVar[dict[str, int]] = {}
+    body_by_path: ClassVar[dict[str, bytes]] = {}
 
     def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length) or b"null")
         _Recorder.requests.append(("POST", self.path, body))
         status = _Recorder.status_by_path.get(self.path, 200)
-        payload = b'{"ok": true}' if status == 200 else b'{"status": "nok"}'
+        payload = _Recorder.body_by_path.get(self.path) or (
+            b'{"ok": true}' if status == 200 else b'{"status": "nok"}'
+        )
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
-        self.wfile.write(payload)
+        try:
+            self.wfile.write(payload)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # the client stopped reading a deliberately oversized body
 
     def log_message(self, *args: object) -> None:  # silence request logging
         pass
@@ -38,6 +46,7 @@ class _Recorder(BaseHTTPRequestHandler):
 def server():
     _Recorder.requests.clear()
     _Recorder.status_by_path.clear()
+    _Recorder.body_by_path.clear()
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), _Recorder)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -73,6 +82,30 @@ def test_send_events_posts_bulk_list(server):
     assert body[0]["duration"] == 60.0
     assert body[0]["timestamp"].endswith("+00:00")
     assert body[0]["data"]["presses"] == 5
+
+
+def test_read_capped_reads_at_most_the_limit():
+    stream = io.BytesIO(b"y" * 100_000)
+    assert _read_capped(stream) == "y" * _MAX_BODY_BYTES
+    assert stream.tell() == _MAX_BODY_BYTES  # the rest was never pulled into memory
+
+
+def test_oversized_error_body_is_capped_in_diagnostics(server, caplog):
+    events_path = f"/api/0/buckets/{BUCKET}/events"
+    _Recorder.status_by_path[events_path] = 500
+    _Recorder.body_by_path[events_path] = b"x" * 5_000_000
+    with caplog.at_level(logging.ERROR, logger="pulse_watcher.awclient"):
+        assert _client(server).send_events([build_event(0, ZERO)]) is False
+    assert "HTTP 500" in caplog.text
+    assert len(caplog.text) < _MAX_BODY_BYTES + 500
+
+
+def test_oversized_success_body_is_capped(server):
+    path = f"/api/0/buckets/{BUCKET}"
+    _Recorder.body_by_path[path] = b"z" * 5_000_000
+    status, body = _client(server)._request("POST", path, {})
+    assert status == 200
+    assert len(body) == _MAX_BODY_BYTES
 
 
 def test_unreachable_server_is_handled():
