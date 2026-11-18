@@ -104,13 +104,13 @@ omarchy plugin add https://github.com/Maxsh/omarchy-pulse --enable
 ~/.config/omarchy/plugins/maxsh.pulse/install/install.sh
 ```
 
-The first command clones this repo into `~/.config/omarchy/plugins/maxsh.pulse` (the plugin *is* the repo) and adds the widget to your bar. The second builds the watcher's venv — outside the plugin folder — and installs the systemd user units: `pulse-watcher`, plus ActivityWatch's server and window watcher only when the machine has none.
+The first command clones this repo into `~/.config/omarchy/plugins/maxsh.pulse` (the plugin *is* the repo) and adds the widget to your bar. The second builds the watcher's venv — outside the plugin folder — and installs the systemd user units: `pulse-watcher`, plus ActivityWatch's server and window watcher only when the machine has none. An existing `pulse-watcher.service` that Pulse did not install is left untouched.
 
 Then log out and back in if your user isn't in the `input` group yet (`sudo usermod -aG input $USER`) — the watcher reads `/dev/input/event*`. Within a couple of minutes of typing, the widget comes alive.
 
 - **Updating:** `omarchy plugin update maxsh.pulse`, then re-run `install.sh` to rebuild the watcher.
 - **Dev checkout instead:** clone the repo anywhere and run `install/install.sh` — it copies the plugin into place and points the service at the venv it builds. Manual steps: [watcher/README.md](watcher/README.md).
-- **Removing:** run `install/uninstall.sh` (stops the watcher, leaves ActivityWatch and its data untouched), then `omarchy plugin remove maxsh.pulse`.
+- **Removing:** run `install/uninstall.sh` (stops and removes the watcher service only if Pulse installed it, leaves ActivityWatch and its data untouched), then `omarchy plugin remove maxsh.pulse`.
 
 ### Settings
 

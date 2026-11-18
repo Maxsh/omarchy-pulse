@@ -46,8 +46,27 @@ unit_active_or_present() {
 # The watcher unit points at the external venv, so it survives the repo or
 # plugin folder moving; keep in sync with watcher/systemd/pulse-watcher.service
 # (that copy is for dev checkouts running from watcher/.venv).
-echo "==> installing pulse-watcher.service (ExecStart -> $VENV)"
-cat > "$SYSTEMD_DIR/pulse-watcher.service" <<UNIT
+# The unit carries a marker line so install and uninstall can tell it apart
+# from a user's own pulse-watcher.service: only a unit we wrote is ever
+# overwritten or removed.
+PULSE_UNIT="$SYSTEMD_DIR/pulse-watcher.service"
+UNIT_MARKER="# Managed by omarchy-pulse install.sh"
+
+# True when the unit file at $1 was written by this installer: it has our
+# marker, or (installs from before the marker existed) it runs our venv binary.
+unit_is_ours() {
+  [ -f "$1" ] || return 1
+  grep -qF "$UNIT_MARKER" "$1" || grep -qxF "ExecStart=$VENV/bin/pulse-watcher" "$1"
+}
+
+ENABLE_UNITS=()
+if [ -e "$PULSE_UNIT" ] && ! unit_is_ours "$PULSE_UNIT"; then
+  echo "==> $PULSE_UNIT exists and was not installed by omarchy-pulse — leaving it alone"
+  echo "    (move it aside and re-run this script to let omarchy-pulse manage the unit)"
+else
+  echo "==> installing pulse-watcher.service (ExecStart -> $VENV)"
+  cat > "$PULSE_UNIT" <<UNIT
+$UNIT_MARKER
 [Unit]
 Description=omarchy-pulse input activity watcher
 Documentation=https://github.com/Maxsh/omarchy-pulse
@@ -62,7 +81,8 @@ RestartSec=5s
 [Install]
 WantedBy=graphical-session.target
 UNIT
-ENABLE_UNITS=(pulse-watcher.service)
+  ENABLE_UNITS+=(pulse-watcher.service)
+fi
 
 # ActivityWatch server: only provide our unit when the machine has none yet.
 if unit_active_or_present aw-server.service; then
@@ -83,7 +103,9 @@ else
 fi
 
 systemctl --user daemon-reload
-systemctl --user enable --now "${ENABLE_UNITS[@]}"
+if (( ${#ENABLE_UNITS[@]} )); then
+  systemctl --user enable --now "${ENABLE_UNITS[@]}"
+fi
 
 # --- 3. the bar widget -------------------------------------------------------
 if (( INSTALL_WIDGET )); then
