@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- `install.sh` no longer overwrites an existing `pulse-watcher.service` it did
+  not write, and `uninstall.sh` no longer disables or deletes one. The unit
+  that `install.sh` generates now carries a `# Managed by omarchy-pulse
+  install.sh` marker; units from older installs are recognised by their
+  `ExecStart` pointing at the external venv.
+- The ActivityWatch client reads at most 2000 bytes of any response (success
+  or HTTP error) instead of loading the whole body before truncating it, so an
+  oversized response can no longer exhaust the watcher's memory.
+
 ## 0.1.1 — 2026-11-17
 
 - The Omarchy plugin lives at the repository root now, so
