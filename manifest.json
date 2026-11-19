@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "maxsh.pulse",
   "name": "Pulse",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Maxsh",
   "description": "Keyboard, mouse, and idle time from ActivityWatch",
   "kinds": ["bar-widget"],

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.2 — 2026-11-19
 
 - `install.sh` no longer overwrites a `pulse-watcher.service` it did not
   write, and `uninstall.sh` stops, disables or deletes one only with positive
@@ -21,6 +21,14 @@
   (`~/.local/state/omarchy-pulse/plugin-install`) and an
   `.installed-by-omarchy-pulse` marker inside the folder match, so a stale
   record from an older install cannot doom an unrelated widget directory.
+- The panel shows a hint when the plugin folder is newer than the watcher
+  venv — `install.sh` records the watcher version it built in
+  `~/.local/share/omarchy-pulse/version` and the widget compares it with its
+  own manifest, so `omarchy plugin update` without a following `install.sh`
+  no longer goes unnoticed. A missing version file never triggers the hint.
+- `install.sh` copies `uninstall.sh` (with `lib.sh`) next to the venv, so
+  removal still works after `omarchy plugin remove` deleted the plugin
+  folder: `~/.local/share/omarchy-pulse/uninstall.sh`.
 
 ## 0.1.1 — 2026-11-17
 
