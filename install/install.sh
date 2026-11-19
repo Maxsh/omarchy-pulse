@@ -34,7 +34,7 @@ fi
 echo "==> uv sync (watcher venv at $VENV)"
 ( cd "$REPO/watcher" && UV_PROJECT_ENVIRONMENT="$VENV" uv sync --no-editable )
 
-# --- 1b. version marker ------------------------------------------------------
+# --- 1b. version marker + standalone uninstall -------------------------------
 mkdir -p "$DATA_DIR"
 # The widget compares this file against its own manifest version, so the
 # panel can hint at a stale watcher after `omarchy plugin update` (which
@@ -44,6 +44,11 @@ if [ -n "$WATCHER_VERSION" ]; then
   printf '%s\n' "$WATCHER_VERSION" > "$DATA_DIR/version"
   echo "==> watcher version $WATCHER_VERSION recorded in $DATA_DIR/version"
 fi
+# Keep a working uninstall next to the venv: `omarchy plugin remove` deletes
+# the plugin folder — this script included — which would leave the service
+# and venv behind with no documented way to remove them.
+install -m 755 "$REPO/install/uninstall.sh" "$DATA_DIR/uninstall.sh"
+install -m 644 "$REPO/install/lib.sh" "$DATA_DIR/lib.sh"
 
 # --- 2. systemd user units ---------------------------------------------------
 mkdir -p "$SYSTEMD_DIR"

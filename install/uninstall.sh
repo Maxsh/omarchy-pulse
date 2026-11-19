@@ -3,7 +3,10 @@
 # ActivityWatch itself and everything it recorded are left untouched.
 #
 # Run this BEFORE `omarchy plugin remove maxsh.pulse` — the plugin folder may
-# be the git checkout this script runs from.
+# be the git checkout this script runs from. install.sh also copies this
+# script (with lib.sh) to the watcher data dir (~/.local/share/omarchy-pulse),
+# so removal still works after `omarchy plugin remove` has deleted the plugin
+# folder; that copy unlinks itself together with the data dir.
 set -euo pipefail
 
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-pulse"
