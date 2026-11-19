@@ -16,11 +16,32 @@ if [[ "$REPO" == "$DEST" || "$REPO" == "$DEST/"* ]]; then
   exit 0
 fi
 
-mkdir -p "$(dirname "$DEST")"
-rm -rf "$DEST"
+# Ownership record lives outside the plugins dir (the shell hot-reloads on any
+# change in there). It is written only after a successful copy, and holds the
+# destination path, so an existing DEST is replaced only when this script put
+# it there. Anything else (a hand-made or modified plugin, a copy from an older
+# install that predates the record) is moved to a backup, never deleted.
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-pulse"
+RECORD="$STATE_DIR/plugin-install"
+
+owned_by_us() {
+  [ -d "$DEST" ] && [ ! -L "$DEST" ] && [ -f "$RECORD" ] && [ "$(cat "$RECORD")" = "$DEST" ]
+}
+
+mkdir -p "$(dirname "$DEST")" "$STATE_DIR/backups"
+if [ -e "$DEST" ] || [ -L "$DEST" ]; then
+  if owned_by_us; then
+    rm -rf "$DEST"
+  else
+    BACKUP="$STATE_DIR/backups/maxsh.pulse-$(date +%Y%m%d-%H%M%S)"
+    mv "$DEST" "$BACKUP"
+    echo "Existing $DEST was not installed by this script — moved to $BACKUP"
+  fi
+fi
 mkdir -p "$DEST"
 cp "$REPO/manifest.json" "$REPO/BarWidget.qml" "$REPO/Panel.qml" "$REPO/PulseModel.js" "$DEST/"
 cp -r "$REPO/i18n" "$DEST/i18n"
+printf '%s\n' "$DEST" > "$RECORD"
 
 echo "Installed: $REPO -> $DEST"
 echo "If the widget does not appear, run: omarchy-shell shell rescanPlugins"
