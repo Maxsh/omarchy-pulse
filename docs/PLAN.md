@@ -175,10 +175,14 @@ Shipped:
   Approved and verified at `c80a4b1` on 2026-11-19 after three review rounds
   (unit ownership, response cap, effective-unit check, plugin backups);
   `installer`, `service-management` and `privilege` capabilities accepted.
-  Catalog publication was still pending then — verify the listing is live
-  before announcing.
-- Announce in GitHub Discussions "Show and tell" only after the listing is
-  live (basecamp/omarchy, structure of the existing plugin posts).
+  Listed 2026-11-19 (category Productivity, installation mode `manual`).
+  Because installs clone HEAD, not the snapshot, `v0.1.2` (`a2a91bb`) went
+  through the newer-commit verification form as
+  [#15375](https://github.com/omacom/omarchy-plugin-marketplace/issues/15375);
+  push only in batches — every new HEAD re-marks the listing "Update
+  unverified" until that commit is verified too.
+- Announce in GitHub Discussions "Show and tell" once `a2a91bb` is verified
+  (basecamp/omarchy, structure of the existing plugin posts).
 
 ## 7. Risks & mitigations
 
