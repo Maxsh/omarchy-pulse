@@ -10,6 +10,15 @@
 - The ActivityWatch client reads at most 2000 bytes of any response (success
   or HTTP error) instead of loading the whole body before truncating it, so an
   oversized response can no longer exhaust the watcher's memory.
+- `uninstall.sh` (and `install.sh`) now check the unit systemd actually loads,
+  not just the file in `~/.config/systemd/user`: a same-named
+  `pulse-watcher.service` from another unit directory, or a symlinked one, is
+  never stopped, disabled, overwritten or deleted. The ownership helpers live
+  in the new `install/lib.sh`.
+- `install/plugin.sh` (dev install) only replaces a plugin directory it
+  installed itself, tracked by a record in `~/.local/state/omarchy-pulse/`.
+  Any other existing `maxsh.pulse` directory is moved to
+  `~/.local/state/omarchy-pulse/backups/` instead of being deleted.
 
 ## 0.1.1 — 2026-11-17
 
