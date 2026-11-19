@@ -109,7 +109,7 @@ The first command clones this repo into `~/.config/omarchy/plugins/maxsh.pulse` 
 Then log out and back in if your user isn't in the `input` group yet (`sudo usermod -aG input $USER`) — the watcher reads `/dev/input/event*`. Within a couple of minutes of typing, the widget comes alive.
 
 - **Updating:** `omarchy plugin update maxsh.pulse`, then re-run `install.sh` to rebuild the watcher.
-- **Dev checkout instead:** clone the repo anywhere and run `install/install.sh` — it copies the plugin into place (an existing plugin folder it did not install is moved to `~/.local/state/omarchy-pulse/backups/`, never deleted) and points the service at the venv it builds. Manual steps: [watcher/README.md](watcher/README.md).
+- **Dev checkout instead:** clone the repo anywhere and run `install/install.sh` — it copies the plugin into place (any existing plugin folder is first moved to `~/.local/state/omarchy-pulse/backups/` — nothing is deleted) and points the service at the venv it builds. Manual steps: [watcher/README.md](watcher/README.md).
 - **Removing:** run `install/uninstall.sh` (stops and removes the watcher service only if Pulse installed it, leaves ActivityWatch and its data untouched), then `omarchy plugin remove maxsh.pulse`.
 
 ### Settings

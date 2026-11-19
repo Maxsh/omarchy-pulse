@@ -16,32 +16,40 @@ if [[ "$REPO" == "$DEST" || "$REPO" == "$DEST/"* ]]; then
   exit 0
 fi
 
-# Ownership record lives outside the plugins dir (the shell hot-reloads on any
-# change in there). It is written only after a successful copy, and holds the
-# destination path, so an existing DEST is replaced only when this script put
-# it there. Anything else (a hand-made or modified plugin, a copy from an older
-# install that predates the record) is moved to a backup, never deleted.
+# Safety net for the dev-install path: whatever occupies the destination is
+# moved to a backup first, so nothing in an existing plugin folder is ever
+# deleted. A folder counts as our previous copy only when BOTH an external
+# record (~/.local/state/omarchy-pulse/plugin-install, kept outside the
+# plugins dir because the shell hot-reloads on any change in there) and an
+# .installed-by-omarchy-pulse marker inside the folder match — a stale record
+# from an older install must not doom an unrelated widget directory.
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-pulse"
 RECORD="$STATE_DIR/plugin-install"
+OWN_TOKEN="installed by omarchy-pulse install/plugin.sh"
+MARKER=".installed-by-omarchy-pulse"
 
 owned_by_us() {
-  [ -d "$DEST" ] && [ ! -L "$DEST" ] && [ -f "$RECORD" ] && [ "$(cat "$RECORD")" = "$DEST" ]
+  [ -d "$DEST" ] && [ ! -L "$DEST" ] \
+    && [ -f "$RECORD" ] && [ "$(cat "$RECORD")" = "$DEST" ] \
+    && [ -f "$DEST/$MARKER" ] && grep -qxF "$OWN_TOKEN" "$DEST/$MARKER"
 }
 
 mkdir -p "$(dirname "$DEST")" "$STATE_DIR/backups"
 if [ -e "$DEST" ] || [ -L "$DEST" ]; then
   if owned_by_us; then
-    rm -rf "$DEST"
+    echo "==> refreshing the widget (the previous copy is kept as a backup)"
   else
-    BACKUP="$STATE_DIR/backups/maxsh.pulse-$(date +%Y%m%d-%H%M%S)"
-    mv "$DEST" "$BACKUP"
-    echo "Existing $DEST was not installed by this script — moved to $BACKUP"
+    echo "==> existing $DEST was not provably installed by this script"
   fi
+  BACKUP="$STATE_DIR/backups/maxsh.pulse-$(date +%Y%m%d-%H%M%S)-$$"
+  mv "$DEST" "$BACKUP"
+  echo "    previous copy moved to $BACKUP — nothing was deleted"
 fi
 mkdir -p "$DEST"
 cp "$REPO/manifest.json" "$REPO/BarWidget.qml" "$REPO/Panel.qml" "$REPO/PulseModel.js" "$DEST/"
 cp -r "$REPO/i18n" "$DEST/i18n"
 printf '%s\n' "$DEST" > "$RECORD"
+printf '%s\n' "$OWN_TOKEN" > "$DEST/$MARKER"
 
 echo "Installed: $REPO -> $DEST"
 echo "If the widget does not appear, run: omarchy-shell shell rescanPlugins"
