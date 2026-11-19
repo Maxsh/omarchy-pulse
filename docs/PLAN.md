@@ -172,8 +172,13 @@ Shipped:
 - Submission: [marketplace issue #15208](https://github.com/omacom/omarchy-plugin-marketplace/issues/15208), category Productivity, tags
   `Bar` / `Quickshell` / `Hyprland` (+ suggested `ActivityWatch` tag), Gruvbox panel shot as preview; the
   watcher dependency stated up front (the widget alone shows "no input data").
+  Approved and verified at `c80a4b1` on 2026-11-19 after three review rounds
+  (unit ownership, response cap, effective-unit check, plugin backups);
+  `installer`, `service-management` and `privilege` capabilities accepted.
+  Catalog publication was still pending then — verify the listing is live
+  before announcing.
 - Announce in GitHub Discussions "Show and tell" only after the listing is
-  approved (basecamp/omarchy, structure of the existing plugin posts).
+  live (basecamp/omarchy, structure of the existing plugin posts).
 
 ## 7. Risks & mitigations
 
