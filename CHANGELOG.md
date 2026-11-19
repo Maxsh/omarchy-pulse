@@ -2,23 +2,25 @@
 
 ## Unreleased
 
-- `install.sh` no longer overwrites an existing `pulse-watcher.service` it did
-  not write, and `uninstall.sh` no longer disables or deletes one. The unit
-  that `install.sh` generates now carries a `# Managed by omarchy-pulse
-  install.sh` marker; units from older installs are recognised by their
-  `ExecStart` pointing at the external venv.
+- `install.sh` no longer overwrites a `pulse-watcher.service` it did not
+  write, and `uninstall.sh` stops, disables or deletes one only with positive
+  proof of ownership: the `# Managed by omarchy-pulse install.sh` marker in
+  the regular unit file at the expected path, and — for anything beyond
+  writing it — the unit systemd actually loads (`FragmentPath`; it may come
+  from another unit directory). A matching `ExecStart` alone proves nothing,
+  so a separately configured unit that launches the same watcher binary is
+  left untouched, and uninstall keeps the venv that such a unit runs from
+  instead of breaking it. The shared checks live in the new `install/lib.sh`.
 - The ActivityWatch client reads at most 2000 bytes of any response (success
   or HTTP error) instead of loading the whole body before truncating it, so an
   oversized response can no longer exhaust the watcher's memory.
-- `uninstall.sh` (and `install.sh`) now check the unit systemd actually loads,
-  not just the file in `~/.config/systemd/user`: a same-named
-  `pulse-watcher.service` from another unit directory, or a symlinked one, is
-  never stopped, disabled, overwritten or deleted. The ownership helpers live
-  in the new `install/lib.sh`.
-- `install/plugin.sh` (dev install) only replaces a plugin directory it
-  installed itself, tracked by a record in `~/.local/state/omarchy-pulse/`.
-  Any other existing `maxsh.pulse` directory is moved to
-  `~/.local/state/omarchy-pulse/backups/` instead of being deleted.
+- `install/plugin.sh` (dev install) never deletes an existing plugin folder:
+  whatever occupies the destination is first moved to
+  `~/.local/state/omarchy-pulse/backups/`. A folder is treated as our
+  previous copy only when both an external record
+  (`~/.local/state/omarchy-pulse/plugin-install`) and an
+  `.installed-by-omarchy-pulse` marker inside the folder match, so a stale
+  record from an older install cannot doom an unrelated widget directory.
 
 ## 0.1.1 — 2026-11-17
 
