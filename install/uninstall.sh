@@ -9,23 +9,21 @@ set -euo pipefail
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-pulse"
 
 VENV="$DATA_DIR/venv"
-PULSE_UNIT="$HOME/.config/systemd/user/pulse-watcher.service"
-UNIT_MARKER="# Managed by omarchy-pulse install.sh"
+SYSTEMD_DIR="$HOME/.config/systemd/user"
+# shellcheck source=lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 
-# True when the unit file at $1 was written by install.sh: it has our marker,
-# or (installs from before the marker existed) it runs our venv binary.
-unit_is_ours() {
-  [ -f "$1" ] || return 1
-  grep -qF "$UNIT_MARKER" "$1" || grep -qxF "ExecStart=$VENV/bin/pulse-watcher" "$1"
-}
-
-if [ -e "$PULSE_UNIT" ] && ! unit_is_ours "$PULSE_UNIT"; then
-  echo "==> $PULSE_UNIT was not installed by omarchy-pulse — leaving the service alone"
-else
-  echo "==> stopping and removing pulse-watcher.service"
-  systemctl --user disable --now pulse-watcher.service 2>/dev/null || true
+# Only stop, disable or delete a unit that positively belongs to omarchy-pulse:
+# both the file at our path and the unit systemd actually loads must be ours.
+if reason=$(foreign_unit_reason); then
+  echo "==> $reason — leaving the service alone"
+elif [ -e "$PULSE_UNIT" ]; then
+  echo "==> stopping and removing $UNIT_NAME"
+  systemctl --user disable --now "$UNIT_NAME" 2>/dev/null || true
   rm -f "$PULSE_UNIT"
   systemctl --user daemon-reload
+else
+  echo "==> no $UNIT_NAME installed by omarchy-pulse — nothing to stop"
 fi
 
 if [ -d "$DATA_DIR" ]; then
