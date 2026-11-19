@@ -34,6 +34,17 @@ fi
 echo "==> uv sync (watcher venv at $VENV)"
 ( cd "$REPO/watcher" && UV_PROJECT_ENVIRONMENT="$VENV" uv sync --no-editable )
 
+# --- 1b. version marker ------------------------------------------------------
+mkdir -p "$DATA_DIR"
+# The widget compares this file against its own manifest version, so the
+# panel can hint at a stale watcher after `omarchy plugin update` (which
+# refreshes the plugin folder but never the venv built outside it).
+WATCHER_VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REPO/manifest.json" | head -1)"
+if [ -n "$WATCHER_VERSION" ]; then
+  printf '%s\n' "$WATCHER_VERSION" > "$DATA_DIR/version"
+  echo "==> watcher version $WATCHER_VERSION recorded in $DATA_DIR/version"
+fi
+
 # --- 2. systemd user units ---------------------------------------------------
 mkdir -p "$SYSTEMD_DIR"
 

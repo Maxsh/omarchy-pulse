@@ -197,6 +197,18 @@ function iso(h, m) {
   check("awUrl ipv6 other", resolveAwUrl("http://[::2]:5600"), D)
 }
 
+// --- watcherUpdateState: version sync between widget and installed watcher ----
+{
+  check("updateState ok", watcherUpdateState("0.1.2", "0.1.2"), "ok")
+  check("updateState outdated", watcherUpdateState("0.1.1", "0.1.2"), "outdated")
+  check("updateState watcher newer", watcherUpdateState("0.2.0", "0.1.2"), "outdated")
+  check("updateState missing installed", watcherUpdateState("", "0.1.2"), "unknown")
+  check("updateState missing own", watcherUpdateState("0.1.2", ""), "unknown")
+  check("updateState both missing", watcherUpdateState(null, null), "unknown")
+  check("updateState whitespace trimmed", watcherUpdateState(" 0.1.2 \n", "0.1.2"), "ok")
+  check("updateState garbage installed", watcherUpdateState("garbage", "0.1.2"), "outdated")
+}
+
 if (fails.length) {
   console.error("FAIL\n" + fails.join("\n"))
   process.exit(1)

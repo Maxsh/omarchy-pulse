@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Commons as Commons
 import qs.Ui
 import "PulseModel.js" as PulseModel
@@ -35,12 +36,47 @@ BarWidget {
   readonly property var appLabels: PulseModel.sanitizeAppLabels(setting("appLabels", null))
   readonly property bool hasData: activity !== null && activity.spanMinutes > 0
 
+  // Version sync: install.sh records the watcher version it built next to
+  // the venv; the widget compares it with its own manifest version so the
+  // panel can hint at a stale watcher after `omarchy plugin update` (which
+  // refreshes the plugin folder but never the venv). Missing files read as
+  // "unknown" — no hint, nothing actionable.
+  property string watcherVersion: ""
+  property string widgetVersion: ""
+  readonly property bool watcherOutdated:
+    PulseModel.watcherUpdateState(watcherVersion, widgetVersion) === "outdated"
+
   // One hue, three intensities: keyboard bright, mouse mid, idle dim.
   readonly property color kbColor: Commons.Color.accent
   readonly property color mouseColor: Commons.Util.alpha(Commons.Color.accent, 0.45)
   readonly property color idleColor: Commons.Util.alpha(Commons.Color.accent, 0.15)
 
   Commons.Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
+
+  // The watcher version install.sh records ($XDG_DATA_HOME or
+  // ~/.local/share + /omarchy-pulse/version); watched, so a re-run of
+  // install.sh clears the hint without a shell restart.
+  FileView {
+    path: (Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/omarchy-pulse/version"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.watcherVersion = String(text() || "").trim()
+    onLoadFailed: root.watcherVersion = ""
+  }
+
+  // The widget's own version comes from the manifest beside this file —
+  // the repo root for git-managed installs.
+  FileView {
+    path: decodeURIComponent(String(Qt.resolvedUrl("manifest.json")).replace(/^file:\/\//, ""))
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try { root.widgetVersion = String(JSON.parse(text()).version || "") } catch (e) { root.widgetVersion = "" }
+    }
+    onLoadFailed: root.widgetVersion = ""
+  }
 
   // Reactive on activity and on the translation catalog, so a late-loading
   // catalog still renders instead of leaving a raw key in the tooltip.

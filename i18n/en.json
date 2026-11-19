@@ -14,5 +14,6 @@
   "pulse.refresh": "Refresh",
   "pulse.noDataDay": "No data",
   "pulse.error.unreachable": "ActivityWatch is not reachable at %1",
-  "pulse.error.noInputBucket": "No input data yet — start the watcher: run install/install.sh from the plugin folder"
+  "pulse.error.noInputBucket": "No input data yet — start the watcher: run install/install.sh from the plugin folder",
+  "pulse.watcherOutdated": "Watcher out of date — run install/install.sh from the plugin folder to rebuild it"
 }

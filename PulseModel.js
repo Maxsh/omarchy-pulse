@@ -547,3 +547,17 @@ function withPercentages(record, totalActive) {
   record.mouseTotalShare = totalActive > 0 ? record.mouseMinutes * 100 / totalActive : 0
   return record
 }
+
+// Version sync between the widget and the installed watcher: install.sh
+// records the watcher version it built next to the venv
+// (~/.local/share/omarchy-pulse/version), the widget carries its manifest
+// version. "outdated" means the plugin folder was updated without re-running
+// install.sh. Either side missing (installs older than the version file,
+// unreadable manifest) is "unknown" — never claim "outdated" without two
+// real versions to compare.
+function watcherUpdateState(installedVersion, widgetVersion) {
+  var installed = String(installedVersion || "").trim()
+  var own = String(widgetVersion || "").trim()
+  if (installed === "" || own === "") return "unknown"
+  return installed === own ? "ok" : "outdated"
+}

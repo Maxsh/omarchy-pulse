@@ -43,6 +43,9 @@ Panel {
   // widget reads from, so it follows the awUrl setting.
   readonly property string awLinkUrl: PulseModel.normalizeBase(root.awUrl)
   readonly property bool hasData: stats !== null && stats.spanMinutes > 0
+  // True when the plugin folder is newer than the watcher venv (plugin
+  // updated, install.sh not re-run) — the bar widget computes it.
+  readonly property bool watcherOutdated: hostWidget ? hostWidget.watcherOutdated === true : false
 
   // Fixed column widths so the tornado's central axis aligns across rows.
   readonly property int appsNameWidth: Commons.Style.space(76)
@@ -522,6 +525,17 @@ Panel {
             ? strings.t("pulse.error.noInputBucket")
             : strings.t("pulse.error.unreachable").arg(root.awUrl)
           color: Commons.Color.urgent
+          font.pixelSize: Commons.Style.font.bodySmall
+        }
+
+        // Install/update hint: the plugin was updated but the watcher venv
+        // (outside the plugin folder) is older than this widget's version.
+        PlainText {
+          width: parent ? parent.width : 0
+          visible: root.watcherOutdated
+          wrapMode: Text.Wrap
+          text: strings.t("pulse.watcherOutdated")
+          color: Commons.Color.muted
           font.pixelSize: Commons.Style.font.bodySmall
         }
       }
