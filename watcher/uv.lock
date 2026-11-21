@@ -2,6 +2,9 @@ version = 1
 revision = 5
 requires-python = ">=3.11"
 
+[manifest]
+build-constraints = [{ name = "hatchling", specifier = "==1.33.0" }]
+
 [[package]]
 name = "colorama"
 version = "0.4.6"

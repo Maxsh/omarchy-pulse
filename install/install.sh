@@ -31,8 +31,11 @@ if ! command -v uv >/dev/null 2>&1; then
   echo "uv is required to build the watcher (https://docs.astral.sh/uv/)." >&2
   exit 1
 fi
-echo "==> uv sync (watcher venv at $VENV)"
-( cd "$REPO/watcher" && UV_PROJECT_ENVIRONMENT="$VENV" uv sync --no-editable )
+echo "==> uv sync --locked (watcher venv at $VENV)"
+# --locked: fail when uv.lock does not match pyproject.toml, so a reviewed
+# commit can never silently install different dependency versions than the
+# ones recorded in the lock (marketplace review #15375).
+( cd "$REPO/watcher" && UV_PROJECT_ENVIRONMENT="$VENV" uv sync --locked --no-editable )
 
 # --- 1b. version marker + standalone uninstall -------------------------------
 mkdir -p "$DATA_DIR"

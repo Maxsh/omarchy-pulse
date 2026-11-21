@@ -11,6 +11,13 @@ pulse-watcher = "pulse_watcher.__main__:main"
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.8"]
 
+[tool.uv]
+# Keep the isolated build environment reproducible: `uv sync --locked` covers
+# the dependency lock, but not the build-time dependencies of the project
+# itself — this constrains the backend the reviewed commit builds with
+# (marketplace review #15375).
+build-constraint-dependencies = ["hatchling==1.33.0"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
