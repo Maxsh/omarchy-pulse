@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.3 — 2026-11-21
+
+Fixes for the three findings that blocked the verification round for
+`a2a91bb` ([omarchy-plugin-marketplace#15375](https://github.com/omacom/omarchy-plugin-marketplace/issues/15375)):
+
+- The watcher's ActivityWatch client no longer honors session proxy settings:
+  requests to the loopback-only endpoint go through an opener with proxy
+  handling disabled, so `http_proxy`/`https_proxy` without a localhost
+  exception can no longer route per-minute input counts and the hostname to
+  a proxy. A test pins this by pointing the proxy environment at a dead port
+  and asserting delivery still succeeds.
+- The watcher build is reproducible: `install.sh` runs `uv sync --locked`
+  (fails instead of silently installing when the lock does not match
+  `pyproject.toml`), and `pyproject.toml` constrains the build backend via
+  `[tool.uv] build-constraint-dependencies` (`hatchling==1.33.0`), so the
+  isolated build environment no longer floats between runs of the same
+  commit.
+- `install.sh` treats an ActivityWatch unit as present when systemd knows it
+  from *any* unit directory — active, enabled or disabled — not just
+  `~/.config/systemd/user`. Our copies can no longer shadow another
+  definition of the same name, and a unit that is neither active nor enabled
+  is reported with its `systemctl --user enable --now` command instead of
+  being started behind the user's back.
+
 ## 0.1.2 — 2026-11-19
 
 - `install.sh` no longer overwrites a `pulse-watcher.service` it did not
