@@ -181,7 +181,28 @@ Shipped:
   [#15375](https://github.com/omacom/omarchy-plugin-marketplace/issues/15375);
   push only in batches — every new HEAD re-marks the listing "Update
   unverified" until that commit is verified too.
-- Announce in GitHub Discussions "Show and tell" once `a2a91bb` is verified
+  **Round 2 blocked 2026-11-20, fixes shipped 2026-11-21 (v0.1.3).**
+  HANCORE-linux blocked `a2a91bb` with three findings, all fixed: (1) the AW
+  client honored session proxies for the loopback endpoint — counts and
+  hostname could reach the proxy; now sent via an opener with proxy handling
+  disabled (`ProxyHandler({})`), guarded by a dead-port proxy test.
+  (2) `install.sh` ran `uv sync` without `--locked` and the isolated build
+  used an unversioned hatchling; now `uv sync --locked` plus `[tool.uv]
+  build-constraint-dependencies = ["hatchling==1.33.0"]`. (3) the AW unit
+  presence check only looked in `~/.config/systemd/user`, so a disabled unit
+  from another unit directory could be shadowed and started with our
+  definition; now any unit systemd knows from any unit directory counts as
+  present, and one that is neither active nor enabled gets an
+  `enable --now` hint instead of being started. Verification re-filed for the
+  fixed HEAD through the newer-commit form.
+  **Installation classification stays `manual`** (same round): the proposed
+  in-panel setup prompt (venv build + `pkexec usermod -aG input` + re-login)
+  would still leave ActivityWatch itself, a privileged group change and a
+  fresh login as separate prerequisites — below the maintainer's bar for
+  standard installation. Don't build the pkexec flow for classification
+  purposes; the manual install hint in the panel stays.
+- Announce in GitHub Discussions "Show and tell" once the v0.1.3
+  verification round is approved
   (basecamp/omarchy, structure of the existing plugin posts).
 
 ## 7. Risks & mitigations
