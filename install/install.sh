@@ -56,10 +56,29 @@ install -m 644 "$REPO/install/lib.sh" "$DATA_DIR/lib.sh"
 # --- 2. systemd user units ---------------------------------------------------
 mkdir -p "$SYSTEMD_DIR"
 
+# "Present" covers every way the machine can already provide the unit:
+# active, enabled, a leftover from a previous install, or a disabled fragment
+# in any other unit directory systemd looks at. Our copies land in
+# ~/.config/systemd/user, which shadows every other definition of the same
+# name — so a unit systemd knows from anywhere must never be replaced, and
+# one the user disabled must never be started behind their back
+# (marketplace review #15375).
 unit_active_or_present() {
   systemctl --user is-active --quiet "$1" 2>/dev/null && return 0
   systemctl --user is-enabled --quiet "$1" 2>/dev/null && return 0
-  [ -f "$SYSTEMD_DIR/$1" ]
+  [ -f "$SYSTEMD_DIR/$1" ] && return 0
+  systemctl --user list-unit-files --no-legend -- "$1" 2>/dev/null | grep -q .
+}
+
+# Point at the manual enable when the unit exists but runs neither now nor at
+# boot (e.g. a disabled fragment from another unit directory): installing our
+# copy would shadow it, and starting it would override the user's choice.
+unit_left_off_note() {
+  if ! systemctl --user is-active --quiet "$1" 2>/dev/null &&
+     ! systemctl --user is-enabled --quiet "$1" 2>/dev/null; then
+    echo "    It is neither active nor enabled — run this to start it:"
+    echo "      systemctl --user enable --now $1"
+  fi
 }
 
 # The watcher unit points at the external venv, so it survives the repo or
@@ -100,6 +119,7 @@ fi
 # ActivityWatch server: only provide our unit when the machine has none yet.
 if unit_active_or_present aw-server.service; then
   echo "==> aw-server.service already present — leaving it alone"
+  unit_left_off_note aw-server.service
 else
   echo "==> installing aw-server.service (bundled aw-server-rust)"
   cp "$REPO/install/aw-server.service" "$SYSTEMD_DIR/aw-server.service"
@@ -109,6 +129,7 @@ fi
 # Window/AFK watcher: powers the Top apps section; install when missing.
 if unit_active_or_present aw-awatcher.service; then
   echo "==> aw-awatcher.service already present — leaving it alone"
+  unit_left_off_note aw-awatcher.service
 else
   echo "==> installing aw-awatcher.service (window focus for Top apps)"
   cp "$REPO/install/aw-awatcher.service" "$SYSTEMD_DIR/aw-awatcher.service"
