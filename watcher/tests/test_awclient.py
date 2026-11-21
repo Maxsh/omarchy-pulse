@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import threading
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import ClassVar
 
@@ -106,6 +107,21 @@ def test_oversized_success_body_is_capped(server):
     status, body = _client(server)._request("POST", path, {})
     assert status == 200
     assert len(body) == _MAX_BODY_BYTES
+
+
+def test_requests_bypass_the_session_proxy(server, monkeypatch):
+    # Per-minute input counts must never travel through a session proxy: the
+    # client connects to the loopback endpoint directly, ignoring http_proxy
+    # even when it has no localhost exception (marketplace review #15375).
+    proxy = "http://127.0.0.1:9"  # nothing listens there
+    for variable in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
+        monkeypatch.setenv(variable, proxy)
+    for variable in ("no_proxy", "NO_PROXY"):
+        monkeypatch.delenv(variable, raising=False)
+    # urlopen() caches its default opener; force a rebuild so the regression
+    # this test guards against would actually pick the proxy up.
+    monkeypatch.setattr(urllib.request, "_opener", None)
+    assert _client(server).ensure_bucket() is True
 
 
 def test_unreachable_server_is_handled():

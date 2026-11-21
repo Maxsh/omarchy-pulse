@@ -1,6 +1,8 @@
 """ActivityWatch REST client (stdlib urllib) + retry queue.
 
-Talks to the local ActivityWatch server only (default http://localhost:5600).
+Talks to the local ActivityWatch server only (default http://localhost:5600),
+always over a direct connection: session proxy settings are ignored, so the
+counts can never travel through a configured HTTP proxy.
 """
 
 from __future__ import annotations
@@ -31,6 +33,16 @@ def _read_capped(response) -> str:
     return response.read(_MAX_BODY_BYTES).decode("utf-8", "replace")
 
 
+def _direct_opener() -> urllib.request.OpenerDirector:
+    """An opener that never uses a proxy, even when the session defines one.
+
+    The endpoint is loopback-only; honoring ``http_proxy``/``https_proxy`` for
+    it would hand per-minute input counts and the hostname to the proxy
+    whenever it lacks a localhost exception (marketplace review #15375).
+    """
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
 class ActivityWatchClient:
     def __init__(
         self,
@@ -45,6 +57,7 @@ class ActivityWatchClient:
         self.hostname = hostname
         self.client_name = client_name
         self.timeout_s = timeout_s
+        self._opener = _direct_opener()
 
     def _request(self, method: str, path: str, payload: object | None = None) -> tuple[int, str]:
         """Return (http_status, body); status 0 means the server was unreachable."""
@@ -57,7 +70,7 @@ class ActivityWatchClient:
             f"{self.base_url}{path}", data=data, headers=headers, method=method
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
+            with self._opener.open(request, timeout=self.timeout_s) as response:
                 return response.status, _read_capped(response)
         except urllib.error.HTTPError as exc:  # 3xx/4xx/5xx — still a server answer
             try:
