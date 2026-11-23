@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.1 — 2026-11-23
+
+- **tmux clients on custom servers are tracked.** A `tmux -L name` / `-S path`
+  client (long and `=` forms included) is queried on its own server socket, so
+  panes on non-default tmux servers attribute correctly instead of falling back
+  to the shell.
+- **"Other" explains itself.** The Top-apps tooltip for the "Other" row now
+  names the largest apps folded into it with their shares — the place small
+  terminal apps (an opencode session just starting, `htop`) hide while the day
+  is young.
+
 ## 0.2.0 — 2026-11-23
 
 - **Top apps sees inside the terminal (opt-in).** `install.sh --with-term-watcher`
