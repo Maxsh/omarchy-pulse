@@ -302,9 +302,9 @@ Panel {
       visible: hoverArea.containsMouse
       fontFamily: root.contentFontFamily
       text: tornadoRow.hasData
-        ? ((tornadoRow.record.terminal !== ""
+        ? ((tornadoRow.record.terminal
             ? tornadoRow.record.label + " · " + strings.t("pulse.inTerminal").arg(tornadoRow.record.terminal)
-              + (tornadoRow.record.via !== "" ? " " + strings.t("pulse.viaTool").arg(tornadoRow.record.via) : "")
+              + (tornadoRow.record.via ? " " + strings.t("pulse.viaTool").arg(tornadoRow.record.via) : "")
             : tornadoRow.record.app) + " · "
           + strings.t("pulse.keyboard") + " " + Commons.I18n.formatNumber(Math.round(tornadoRow.record.kbShare)) + "% · "
           + strings.t("pulse.mouse") + " " + Commons.I18n.formatNumber(Math.round(tornadoRow.record.mouseShare)) + "%")
