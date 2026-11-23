@@ -142,7 +142,7 @@ The widget reads its inline entry in `~/.config/omarchy/shell.json` (hot-reloads
 - [x] Phase 3 — panel: today, last 7 days, weekly total
 - [x] Phase 4 — input-time attribution (HCI-based), Top apps, polish
 - [x] Phase 5 — v0.1: one-step install, Ukrainian translation, screenshots, license, release
-- [x] Marketplace listing ([live](https://plugins.omarchy.org/plugin.html?id=maxsh.pulse), review in [issue #15208](https://github.com/omacom/omarchy-plugin-marketplace/issues/15208)) — verified at `c80a4b1`; `v0.1.2` verification filed as [#15375](https://github.com/omacom/omarchy-plugin-marketplace/issues/15375); `v0.2.x` (opt-in terminal watcher) re-verification requested in [#15208](https://github.com/omacom/omarchy-plugin-marketplace/issues/15208#issuecomment-7108285626); announce once verified
+- [x] Marketplace listing ([live](https://plugins.omarchy.org/plugin.html?id=maxsh.pulse), review in [issue #15208](https://github.com/omacom/omarchy-plugin-marketplace/issues/15208)) — verified at `c80a4b1`; `v0.1.2` (`a2a91bb`) blocked with three findings ([#15375](https://github.com/omacom/omarchy-plugin-marketplace/issues/15375)), fixed and folded into `v0.1.3`; fresh round pending as [#15538](https://github.com/omacom/omarchy-plugin-marketplace/issues/15538); `v0.2.x` (opt-in terminal watcher) requested in [#15208](https://github.com/omacom/omarchy-plugin-marketplace/issues/15208#issuecomment-7108285626); announce once verified
 
 Decisions and details: [docs/PLAN.md](docs/PLAN.md).
 
