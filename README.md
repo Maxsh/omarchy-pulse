@@ -15,10 +15,11 @@ Activity trackers usually count things — keystrokes, clicks, minutes. Counts d
 - **Bar widget** — a compact stacked mini-bar: today's keyboard / mouse / idle split. Hover for exact percentages, left click to open the panel, right click to force a refresh.
 - **Panel**
   - **Today** — keyboard, mouse, and idle as percentages of your session so far (first input → now; away time over 3 minutes is excluded).
-  - **Top apps** — where today's active time went, per app, each bar split by that app's own keyboard/mouse ratio (needs a window watcher, see Install). Time inside a terminal is attributed to the program running in it — `opencode`, `nvim`, a shell — whether it runs under herdr, tmux or a plain terminal, instead of one big `foot` row (hover shows the terminal and the multiplexer).
+  - **Top apps** — where today's active time went, per app, each bar split by that app's own keyboard/mouse ratio (needs a window watcher, see Install). With the optional terminal watcher, time inside a terminal is attributed to the program running in it — `opencode`, `nvim`, a shell — instead of one big `foot` row (hover shows the terminal and the multiplexer).
   - **Last 7 days** — one stacked bar per day, hover for exact numbers.
   - **Total** — the weekly aggregate.
   - The title opens the ActivityWatch dashboard for deep dives.
+- **Terminal watcher (optional, opt-in)** — `install.sh --with-term-watcher` adds a second unit that names the program with focus inside the terminal, whether it runs under herdr, tmux or a plain terminal. Single-instance terminals (Ghostty's desktop default, `footclient`, `kitty --single-instance`) are deliberately left unsplit — one process serving several windows cannot be attributed honestly. Remove it again with `install/uninstall.sh`.
 
 Everything follows your Omarchy theme, and the panel speaks English and Ukrainian:
 
@@ -87,7 +88,7 @@ A "thinking" number would be a guess dressed up as a measurement, which runs aga
 
 Events go into the stock `aw-watcher-input_{hostname}` bucket with the stock keys (`presses`, `clicks`, `deltaX`, …) plus additive `kbS` / `mouseS` / `bothS`, so ActivityWatch's own views keep working.
 
-A second, optional unit, `pulse-term-watcher`, follows Hyprland focus and — when the focused window is a terminal — asks herdr (its per-session socket), tmux or the tty foreground process what runs inside it. It heartbeats that name into its own `aw-watcher-term_{hostname}` bucket (type `app.terminal.focus`), which the widget joins onto Top apps. It needs no `input` group.
+A second, opt-in unit, `pulse-term-watcher`, follows Hyprland focus and — when the focused window is a terminal — asks herdr (its per-session socket, located via the client's own environment), tmux or the tty foreground process what runs inside it. It heartbeats that name into its own `aw-watcher-term_{hostname}` bucket (type `app.terminal.focus`), which the widget joins onto Top apps. It needs no `input` group and is installed only with `install.sh --with-term-watcher`.
 
 ## Requirements
 
@@ -130,7 +131,7 @@ The widget reads its inline entry in `~/.config/omarchy/shell.json` (hot-reloads
 
 - The watcher sees key *events*, never records *which* key — not in storage, logs, or debug output. A test asserts emitted events contain only count/seconds fields.
 - Mouse activity is clicks, scroll steps, and pointer distance.
-- The terminal watcher stores only the *name* of the program with focus inside a terminal (`opencode`, `nvim`, `shell`), the terminal class and how it was resolved (`herdr`, `tmux`, `pty`) — never the working directory, paths, arguments, titles, workspace names or pane contents. Stop it any time: `systemctl --user stop pulse-term-watcher`.
+- The optional terminal watcher (opt-in via `install.sh --with-term-watcher`) stores only the *name* of the program with focus inside a terminal (`opencode`, `nvim`, `shell`), the terminal class and how it was resolved (`herdr`, `tmux`, `pty`) — never the working directory, paths, arguments, titles, workspace names or pane contents. It reads three herdr environment variables (`HERDR_SOCKET_PATH`, `HERDR_CONFIG_PATH`, `XDG_CONFIG_HOME`) to find the socket and stores none of them. Stop it any time: `systemctl --user stop pulse-term-watcher`.
 - Everything stays local: ActivityWatch on `localhost:5600` and its local database. The widget talks to nothing else, and never reads browser-tab data.
 - Stop it any time: `systemctl --user stop pulse-watcher`.
 
