@@ -29,12 +29,17 @@ class FakeProc:
         argv: tuple[str, ...] = (),
         tty_nr: int = 0,
         tpgid: int = -1,
+        env: dict[str, str] | None = None,
     ) -> None:
         directory = self.root / str(pid)
         (directory / "task" / str(pid)).mkdir(parents=True, exist_ok=True)
         stat = f"{pid} ({comm}) S {ppid} {pid} {pid} {tty_nr} {tpgid} 0 0 0"
         (directory / "stat").write_text(stat)
         (directory / "cmdline").write_bytes(b"\0".join(a.encode() for a in argv) + b"\0")
+        if env is not None:
+            (directory / "environ").write_bytes(
+                b"\0".join(f"{k}={v}".encode() for k, v in env.items()) + b"\0"
+            )
         self._children.setdefault(pid, [])
         if ppid:
             self._children.setdefault(ppid, []).append(pid)
@@ -201,6 +206,76 @@ def test_plain_pty_uses_the_foreground_process_group(fake, herdr_base):
     fake.add(150, "lazygit", ppid=101, tty_nr=34817, tpgid=150)
     resolver = Resolver(fake.proc(), herdr_base, lambda: "")
     assert resolver.resolve(100) == Resolution("lazygit", "pty")
+
+
+def test_single_instance_terminal_is_not_resolved(fake, herdr_base):
+    # Ghostty's desktop default (gtk-single-instance=detect -> true), footclient
+    # and kitty --single-instance keep all windows in one process: the tree
+    # cannot say which window runs what, so resolving would misattribute.
+    fake.add(100, "foot")
+    fake.add(101, "zsh", ppid=100, tty_nr=34817, tpgid=101)
+    shared = Resolver(fake.proc(), herdr_base, lambda: "", window_pids=lambda: [100, 100, 555])
+    assert shared.resolve(100) is None
+    # A unique pid still resolves, and so does one without peer information.
+    unique = Resolver(fake.proc(), herdr_base, lambda: "", window_pids=lambda: [100, 555])
+    assert unique.resolve(100) == Resolution("shell", "pty")
+    assert Resolver(fake.proc(), herdr_base, lambda: "").resolve(100) == Resolution("shell", "pty")
+
+
+def test_herdr_socket_override_from_the_client_environment(fake, herdr_base):
+    fake.add(100, "foot")
+    fake.add(
+        101,
+        "herdr",
+        ppid=100,
+        argv=("herdr", "--session", "moved"),
+        env={"HERDR_SOCKET_PATH": str(herdr_base / "moved.sock"), "SECRET_TOKEN": "x"},
+    )
+    stub = StubHerdr(herdr_base / "moved.sock", {"pane.current": _pane(agent="claude")})
+    try:
+        # HERDR_SOCKET_PATH on the client process wins over the default layout.
+        resolver = Resolver(fake.proc(), herdr_base, lambda: "")
+        assert resolver.resolve(100) == Resolution("claude", "herdr")
+    finally:
+        stub.close()
+
+
+def test_herdr_config_path_redirects_the_socket_base(fake, herdr_base):
+    fake.add(100, "foot")
+    fake.add(
+        101,
+        "herdr",
+        ppid=100,
+        argv=("herdr",),
+        env={"HERDR_CONFIG_PATH": str(herdr_base / "elsewhere" / "config.toml")},
+    )
+    stub = StubHerdr(
+        herdr_base / "elsewhere" / "herdr.sock", {"pane.current": _pane(agent="opencode")}
+    )
+    try:
+        resolver = Resolver(fake.proc(), herdr_base, lambda: "")
+        assert resolver.resolve(100) == Resolution("opencode", "herdr")
+    finally:
+        stub.close()
+
+
+def test_herdr_client_environment_values_are_not_leaked(fake, herdr_base):
+    # The env is read only to find the socket; the resolver result must not
+    # carry any of it, and unrequested variables are dropped unread.
+    fake.add(100, "foot")
+    fake.add(
+        101,
+        "herdr",
+        ppid=100,
+        argv=("herdr",),
+        env={"HERDR_CONFIG_PATH": "/tmp/x", "HERDR_TOKEN": "supersecret"},
+    )
+    fake.add(102, "bash", ppid=100, tty_nr=9, tpgid=102)
+    resolver = Resolver(fake.proc(), herdr_base, lambda: "")
+    result = resolver.resolve(100)
+    assert result is None or "supersecret" not in result.app
+    assert fake.proc().environ(101, {"UNRELATED"}) == {}  # only requested keys are returned
+    assert fake.proc().environ(99999, {"A"}) == {}  # unknown pid -> empty, no error
 
 
 def test_idle_shell_is_reported_as_shell(fake, herdr_base):

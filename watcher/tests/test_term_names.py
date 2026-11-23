@@ -1,9 +1,11 @@
 """Name normalization, herdr argv parsing and the heartbeat schema (privacy rule 1)."""
 
+import pathlib
+
 import pytest
 
 from pulse_watcher.term.events import DATA_KEYS, build_heartbeat
-from pulse_watcher.term.herdr import parse_client_argv, socket_path
+from pulse_watcher.term.herdr import DEFAULT_BASE, parse_client_argv, socket_for, socket_path
 from pulse_watcher.term.names import normalize
 
 
@@ -50,6 +52,24 @@ def test_parse_client_argv_rejects_path_like_session_names():
 def test_socket_path_per_session(tmp_path):
     assert socket_path(None, tmp_path) == tmp_path / "herdr.sock"
     assert socket_path("work", tmp_path) == tmp_path / "sessions" / "work" / "herdr.sock"
+
+
+def test_socket_for_prefers_the_client_socket_override(tmp_path):
+    class _P:
+        def environ(self, pid, wanted):
+            return {"HERDR_SOCKET_PATH": "/custom/herdr.sock"} if pid == 7 else {}
+
+    assert socket_for(_P(), 7, "work", tmp_path) == pathlib.Path("/custom/herdr.sock")
+
+
+def test_socket_for_xdg_config_home(tmp_path):
+    class _P:
+        def environ(self, pid, wanted):
+            return {"XDG_CONFIG_HOME": "/xdg"} if pid == 7 else {}
+
+    assert socket_for(_P(), 7, None, DEFAULT_BASE) == pathlib.Path("/xdg/herdr/herdr.sock")
+    # An explicit base (tests, deployments) is kept when only XDG differs.
+    assert socket_for(_P(), 7, None, tmp_path) == tmp_path / "herdr.sock"
 
 
 def test_heartbeat_data_has_only_name_fields():

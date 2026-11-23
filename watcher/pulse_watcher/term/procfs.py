@@ -10,6 +10,7 @@ import pathlib
 from collections import deque
 
 _MAX_ARGV_BYTES = 4096
+_MAX_ENVIRON_BYTES = 131072
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -64,6 +65,27 @@ class Proc:
         except OSError:
             return []
         return [part.decode("utf-8", "replace") for part in raw.split(b"\0") if part]
+
+    def environ(self, pid: int, wanted: frozenset[str] | set[str]) -> dict[str, str]:
+        """Only the requested environment variables of a process.
+
+        Values are read to locate local sockets (never stored or logged), so
+        everything except ``wanted`` is dropped unread here.
+        """
+        try:
+            with (self.root / str(pid) / "environ").open("rb") as fh:
+                raw = fh.read(_MAX_ENVIRON_BYTES)
+        except OSError:
+            return {}
+        found: dict[str, str] = {}
+        for entry in raw.split(b"\0"):
+            key, sep, value = entry.partition(b"=")
+            if not sep:
+                continue
+            name = key.decode("utf-8", "replace")
+            if name in wanted:
+                found[name] = value.decode("utf-8", "replace")
+        return found
 
     def descendants(self, pid: int, max_nodes: int = 256) -> list[int]:
         """Breadth-first descendants of ``pid`` (excluding it), bounded."""

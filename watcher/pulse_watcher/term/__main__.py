@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     bucket_id = f"{cfg.bucket_prefix}_{hostname}"
     client = ActivityWatchClient(cfg.aw_url, bucket_id, hostname, bucket_type=BUCKET_TYPE)
     hypr = Hyprland(directory)
-    resolver = Resolver()
+    resolver = Resolver(window_pids=hypr.client_pids)
     stop = threading.Event()
     wake = threading.Event()
 

@@ -50,12 +50,22 @@ class Resolver:
         proc: Proc | None = None,
         herdr_base: pathlib.Path = herdr.DEFAULT_BASE,
         tmux_runner: TmuxRunner = run_tmux_list_clients,
+        window_pids: Callable[[], list[int]] | None = None,
     ) -> None:
         self.proc = proc or Proc()
         self.herdr_base = herdr_base
         self.tmux_runner = tmux_runner
+        # Pids of every open window; several windows on one pid mean a
+        # single-instance terminal (Ghostty's desktop default, footclient,
+        # kitty --single-instance), where the process tree cannot say which
+        # window runs what — resolving then would credit one window with
+        # another's app, so it is skipped instead.
+        self.window_pids = window_pids
 
     def resolve(self, terminal_pid: int) -> Resolution | None:
+        if self.window_pids is not None and self.window_pids().count(terminal_pid) > 1:
+            log.debug("pid %d owns several windows; not resolving", terminal_pid)
+            return None
         pids = self.proc.descendants(terminal_pid)
         return self._via_herdr(pids) or self._via_tmux(pids) or self._via_pty(pids)
 
@@ -71,7 +81,8 @@ class Resolver:
             if mode == "remote":
                 # The panes run on another machine; only the client is local.
                 return Resolution("herdr", "herdr")
-            app = herdr.focused_app(herdr.socket_path(session, self.herdr_base))
+            socket = herdr.socket_for(self.proc, pid, session, self.herdr_base)
+            app = herdr.focused_app(socket)
             return Resolution(app, "herdr") if app else None
         return None
 

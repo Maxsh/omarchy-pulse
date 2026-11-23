@@ -16,6 +16,7 @@ import socket
 from collections.abc import Sequence
 
 from .names import normalize
+from .procfs import Proc
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +55,34 @@ def socket_path(session: str | None, base: pathlib.Path = DEFAULT_BASE) -> pathl
     if session is None:
         return base / "herdr.sock"
     return base / "sessions" / session / "herdr.sock"
+
+
+def socket_for(
+    proc: Proc,
+    pid: int,
+    session: str | None,
+    default_base: pathlib.Path = DEFAULT_BASE,
+) -> pathlib.Path:
+    """Socket path for the client at ``pid``, honoring its own environment.
+
+    herdr resolves its socket from ``HERDR_SOCKET_PATH``, ``HERDR_CONFIG_PATH``
+    and ``XDG_CONFIG_HOME``; a client launched with a moved config would
+    otherwise be invisible. Only these three variables are read and none of
+    their values are ever stored (privacy rule 1).
+    """
+    env = proc.environ(pid, {"HERDR_SOCKET_PATH", "HERDR_CONFIG_PATH", "XDG_CONFIG_HOME"})
+    override = env.get("HERDR_SOCKET_PATH", "")
+    if override:
+        return pathlib.Path(override)
+    base = default_base
+    config = env.get("HERDR_CONFIG_PATH", "")
+    if config:
+        base = pathlib.Path(config).expanduser().parent
+    elif default_base == DEFAULT_BASE:
+        xdg = env.get("XDG_CONFIG_HOME", "")
+        if xdg:
+            base = pathlib.Path(xdg) / "herdr"
+    return socket_path(session, base)
 
 
 def _call(path: pathlib.Path, method: str, params: dict, timeout_s: float = 1.0) -> dict | None:

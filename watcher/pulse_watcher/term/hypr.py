@@ -14,7 +14,7 @@ import threading
 
 log = logging.getLogger(__name__)
 
-_MAX_REPLY_BYTES = 65536
+_MAX_REPLY_BYTES = 262144
 
 #: Hyprland events after which the focused window may have changed.
 _WAKE_EVENTS = ("activewindowv2>>", "closewindow>>", "workspacev2>>", "fullscreen>>")
@@ -55,6 +55,37 @@ class Hyprland:
         if not isinstance(window_class, str) or not window_class or not isinstance(pid, int):
             return None
         return window_class, pid
+
+    def client_pids(self) -> list[int]:
+        """Pids of all open windows, one entry per window (duplicates preserved).
+
+        A pid appearing more than once means several windows share one process —
+        a single-instance terminal (Ghostty's default, ``footclient``,
+        ``kitty --single-instance``). For those, the process tree cannot say
+        which window a program belongs to, so the caller must not resolve.
+        """
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+                sock.settimeout(1.0)
+                sock.connect(str(self.directory / ".socket.sock"))
+                sock.sendall(b"j/clients")
+                buf = b""
+                while len(buf) < _MAX_REPLY_BYTES:
+                    chunk = sock.recv(65536)
+                    if not chunk:
+                        break
+                    buf += chunk
+            data = json.loads(buf)
+        except (OSError, ValueError) as exc:
+            log.debug("hyprland clients failed: %s", exc)
+            return []
+        if not isinstance(data, list):
+            return []
+        return [
+            entry["pid"]
+            for entry in data
+            if isinstance(entry, dict) and isinstance(entry.get("pid"), int) and entry["pid"] > 0
+        ]
 
     def listen(self, wake: threading.Event, stop: threading.Event) -> None:
         """Set ``wake`` on focus-relevant events until ``stop``; reconnects on errors."""
