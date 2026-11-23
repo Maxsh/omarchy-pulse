@@ -1,16 +1,24 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-11-23
 
-- **Top apps sees inside the terminal.** A new `pulse-term-watcher` user unit
-  records which program has focus inside the focused terminal window (herdr,
-  tmux or a plain pty) into its own `aw-watcher-term_{host}` bucket, so time
-  under herdr shows up as `opencode`, `nvim`, a shell and so on instead of one
-  `foot` row. Only a short command or agent name is stored (never cwd, paths,
-  arguments, titles or pane contents). Terminal minutes without a match stay
-  with the emulator, and without the bucket nothing changes. `install.sh` and
-  `uninstall.sh` manage the unit under the same "only if Pulse installed it"
-  rule. See docs/PLAN.md D13.
+- **Top apps sees inside the terminal (opt-in).** `install.sh --with-term-watcher`
+  adds a `pulse-term-watcher` user unit that records which program has focus
+  inside the focused terminal window (herdr, tmux or a plain pty) into its own
+  `aw-watcher-term_{host}` bucket, so time under herdr shows up as `opencode`,
+  `nvim`, a shell and so on instead of one `foot` row. Only a short command or
+  agent name is stored (never cwd, paths, arguments, titles or pane contents).
+  Terminal minutes without a match stay with the emulator, and without the
+  bucket nothing changes. `install.sh` and `uninstall.sh` manage the unit under
+  the same "only if Pulse installed it" rule. See docs/PLAN.md D13.
+- **Single-instance terminals are left unsplit.** When the focused window's pid
+  owns several open windows (Ghostty's desktop default, `footclient`,
+  `kitty --single-instance`), the process tree cannot tell which window runs
+  what, so the watcher skips those windows instead of guessing.
+- **herdr sockets are found via the client's own environment**
+  (`HERDR_SOCKET_PATH`, `HERDR_CONFIG_PATH`, `XDG_CONFIG_HOME`), so a moved
+  herdr config no longer blinds the watcher; the variables are read from
+  `/proc` and never stored.
 
 ## 0.1.3 — 2026-11-21
 
