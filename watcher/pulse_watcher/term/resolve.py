@@ -12,7 +12,7 @@ import dataclasses
 import logging
 import pathlib
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from . import herdr
 from .names import normalize
@@ -20,7 +20,7 @@ from .procfs import Proc
 
 log = logging.getLogger(__name__)
 
-TmuxRunner = Callable[[], str]
+TmuxRunner = Callable[[tuple[str, ...]], str]
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -29,11 +29,11 @@ class Resolution:
     via: str  # "herdr" | "tmux" | "pty"
 
 
-def run_tmux_list_clients() -> str:
+def run_tmux_list_clients(extra: Sequence[str] = ()) -> str:
     """``client_pid`` + the client's current pane command, one client per line."""
     try:
         done = subprocess.run(
-            ["tmux", "list-clients", "-F", "#{client_pid} #{pane_current_command}"],
+            ["tmux", *extra, "list-clients", "-F", "#{client_pid} #{pane_current_command}"],
             capture_output=True,
             text=True,
             timeout=1.0,
@@ -42,6 +42,27 @@ def run_tmux_list_clients() -> str:
     except (OSError, subprocess.SubprocessError):
         return ""
     return done.stdout if done.returncode == 0 else ""
+
+
+def tmux_socket_args(argv: Sequence[str]) -> tuple[str, ...]:
+    """The tmux CLI arguments that select a client's server socket, if any.
+
+    Clients on the default socket return ``()``; ``-L name``/``-S path`` (long
+    forms ``--socket-name``/``--socket-path``, attached forms ``-Lname`` too)
+    are passed through so ``tmux ... list-clients`` reaches the same server.
+    """
+    for index, arg in enumerate(argv[1:]):
+        if arg in ("-L", "-S", "--socket-name", "--socket-path"):
+            if index + 2 < len(argv):  # +2: the value follows in argv itself
+                return (arg, argv[index + 2])
+            return ()
+        for long_name in ("--socket-name=", "--socket-path="):
+            if arg.startswith(long_name):
+                return (long_name[:-1], arg[len(long_name) :])
+        for flag in ("-L", "-S"):
+            if arg.startswith(flag) and len(arg) > 2:
+                return (flag, arg[2:])
+    return ()
 
 
 class Resolver:
@@ -88,15 +109,23 @@ class Resolver:
 
     def _via_tmux(self, pids: list[int]) -> Resolution | None:
         clients = {
-            pid for pid in pids if (stat := self.proc.stat(pid)) and stat.comm.startswith("tmux")
+            pid: tmux_socket_args(self.proc.argv(pid))
+            for pid in pids
+            if (stat := self.proc.stat(pid)) and stat.comm.startswith("tmux")
         }
         if not clients:
             return None
-        for line in self.tmux_runner().splitlines():
-            pid_text, _, command = line.partition(" ")
-            if pid_text.isdigit() and int(pid_text) in clients:
-                app = normalize(command)
-                return Resolution(app, "tmux") if app else None
+        # Clients may talk to different servers (custom -L/-S sockets): query
+        # each distinct socket once and match its client pids.
+        by_socket: dict[tuple[str, ...], set[int]] = {}
+        for pid, socket_args in clients.items():
+            by_socket.setdefault(socket_args, set()).add(pid)
+        for socket_args, pids_on_socket in by_socket.items():
+            for line in self.tmux_runner(socket_args).splitlines():
+                pid_text, _, command = line.partition(" ")
+                if pid_text.isdigit() and int(pid_text) in pids_on_socket:
+                    app = normalize(command)
+                    return Resolution(app, "tmux") if app else None
         return None
 
     def _via_pty(self, pids: list[int]) -> Resolution | None:
