@@ -240,6 +240,28 @@ function iso(h, m) {
     { startMs: at(10, 0) + 15000, endMs: at(10, 1), app: "lazygit", terminal: "foot", via: "pty" },
   ]
   check("term majority span wins", topApps([minutes[0]], windows, 5, null, split).apps[0].app, "term:lazygit")
+
+  // apps folded into "Other" are named by the tooltip, largest first
+  const manyMinutes = []
+  for (let m = 0; m < 100; m++) manyMinutes.push({ tsMs: at(10, m), kind: 1 }) // rolls into 11:xx
+  const footLong = { startMs: at(9, 0), durationS: 60 * 70, app: "foot" } // first 70 minutes
+  const tinyWindows = [70, 72, 74, 76, 78].map((m) => ({
+    startMs: at(10, m), durationS: 120, app: "tiny" + ((m - 70) / 2 + 1),
+  }))
+  const all = [footLong, ...tinyWindows, { startMs: at(10, 80), durationS: 60 * 30, app: "editor" }]
+  const rCap = topApps(manyMinutes, all, 5)
+  const footRow = rCap.apps.filter((a) => a.app === "foot")[0]
+  check("kept rows carry no parts", footRow.parts, undefined)
+  const capRow = rCap.apps.filter((a) => a.app === "other")[0]
+  check("other row present", capRow.pct, 10)
+  check("other parts capped", capRow.parts.length, 4)
+  check("other parts pct rounded", capRow.parts[0].pct, 2)
+
+  const twoTiny = [footLong, tinyWindows[0], tinyWindows[1],
+    { startMs: at(10, 74), durationS: 60 * 30, app: "editor" }]
+  const rParts = topApps(manyMinutes, twoTiny, 5)
+  const partsRow = rParts.apps.filter((a) => a.app === "other")[0]
+  check("other parts collected", partsRow.parts.map((p) => p.label).sort().join(","), "tiny1,tiny2")
 }
 
 // --- resolveAwUrl: the awUrl setting stays local-only ------------------------

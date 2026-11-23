@@ -16,6 +16,9 @@ var TERM_BUCKET_TYPE = "app.terminal.focus"
 // "Other" itself only shows when it clears the same bar.
 var MIN_APP_SHARE_PCT = 3
 
+// How many of the apps folded into "Other" the tooltip names (largest first).
+var MAX_OTHER_PARTS = 4
+
 // Pointer travel that marks a minute as mouse-driven in the legacy heuristic
 // (about a screen crossing on this scale).
 var MOVEMENT_THRESHOLD_PX = 400
@@ -595,7 +598,7 @@ function topApps(minutes, windows, topN, labels, termSpans) {
   // everything below the threshold — and everything beyond the cap — folds
   // into "Other", which itself only shows when it clears the threshold.
   var kept = []
-  var other = { app: "other", label: "other", kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
+  var other = { app: "other", label: "other", kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0, parts: [] }
   var maxShare = 0
   for (var k = 0; k < list.length; k++) {
     var rec = withPercentages(list[k], totalActive)
@@ -605,11 +608,16 @@ function topApps(minutes, windows, topN, labels, termSpans) {
       other.kbMinutes += rec.kbMinutes
       other.mouseMinutes += rec.mouseMinutes
       other.activeMinutes += rec.activeMinutes
+      other.parts.push({ label: rec.label, pct: rec.pct })
     }
   }
   if (other.activeMinutes > 0) {
     var otherRec = withPercentages(other, totalActive)
-    if (otherRec.pct >= MIN_APP_SHARE_PCT) kept.push(otherRec)
+    if (otherRec.pct >= MIN_APP_SHARE_PCT) {
+      otherRec.parts.sort(function(a, b) { return b.pct - a.pct })
+      otherRec.parts = otherRec.parts.slice(0, MAX_OTHER_PARTS)
+      kept.push(otherRec)
+    }
   }
   for (var m = 0; m < kept.length; m++) {
     maxShare = Math.max(maxShare, kept[m].kbTotalShare, kept[m].mouseTotalShare)

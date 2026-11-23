@@ -298,14 +298,35 @@ Panel {
       acceptedButtons: Qt.NoButton
     }
 
+    // The hovered row's title: an inner-app row names its terminal (and how
+    // it was resolved), "Other" names the largest apps folded into it.
+    readonly property string rowTitle: {
+      if (!tornadoRow.hasData) return ""
+      if (tornadoRow.record.terminal) {
+        var title = tornadoRow.record.label + " · "
+          + strings.t("pulse.inTerminal").arg(tornadoRow.record.terminal)
+        if (tornadoRow.record.via)
+          title += " " + strings.t("pulse.viaTool").arg(tornadoRow.record.via)
+        return title
+      }
+      if (tornadoRow.record.app === "other") {
+        var parts = tornadoRow.record.parts || []
+        if (parts.length > 0) {
+          var names = []
+          for (var i = 0; i < parts.length; i++)
+            names.push(parts[i].label + " " + Commons.I18n.formatNumber(parts[i].pct) + "%")
+          return strings.t("pulse.other") + " · " + names.join(" · ")
+        }
+        return strings.t("pulse.other")
+      }
+      return tornadoRow.record.label
+    }
+
     PanelToolTip {
       visible: hoverArea.containsMouse
       fontFamily: root.contentFontFamily
       text: tornadoRow.hasData
-        ? ((tornadoRow.record.terminal
-            ? tornadoRow.record.label + " · " + strings.t("pulse.inTerminal").arg(tornadoRow.record.terminal)
-              + (tornadoRow.record.via ? " " + strings.t("pulse.viaTool").arg(tornadoRow.record.via) : "")
-            : tornadoRow.record.app) + " · "
+        ? (tornadoRow.rowTitle + " · "
           + strings.t("pulse.keyboard") + " " + Commons.I18n.formatNumber(Math.round(tornadoRow.record.kbShare)) + "% · "
           + strings.t("pulse.mouse") + " " + Commons.I18n.formatNumber(Math.round(tornadoRow.record.mouseShare)) + "%")
         : strings.t("pulse.noDataDay")
