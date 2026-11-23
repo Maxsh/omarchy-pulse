@@ -10,7 +10,13 @@
 #      working
 # Safe to re-run — an update is the same command after `git pull`.
 #
-# Usage: install.sh [--no-widget]
+# Usage: install.sh [--no-widget] [--with-term-watcher]
+#
+# --with-term-watcher opts into the optional terminal-focus watcher (a second
+# user unit that reads /proc and the herdr/Hyprland sockets to name the
+# program inside the focused terminal; stores names only — see README
+# Privacy). Re-running without the flag never removes an installed unit; a
+# unit omarchy-pulse did not write is never touched.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,11 +24,13 @@ DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-pulse"
 VENV="$DATA_DIR/venv"
 SYSTEMD_DIR="${HOME}/.config/systemd/user"
 INSTALL_WIDGET=1
+WITH_TERM=0
 
 for arg in "$@"; do
   case "$arg" in
     --no-widget) INSTALL_WIDGET=0 ;;
-    *) echo "Unknown option: $arg (supported: --no-widget)" >&2; exit 1 ;;
+    --with-term-watcher) WITH_TERM=1 ;;
+    *) echo "Unknown option: $arg (supported: --no-widget, --with-term-watcher)" >&2; exit 1 ;;
   esac
 done
 
@@ -117,13 +125,16 @@ UNIT
 fi
 
 # Terminal-focus watcher: names the program with focus inside the terminal
-# window (herdr / tmux / plain pty) so Top apps is not all "foot". Same
-# ownership rule as above: a unit we did not write is never touched.
-if { [ -e "$TERM_UNIT" ] || [ -L "$TERM_UNIT" ]; } && ! unit_is_ours "$TERM_UNIT"; then
-  echo "==> $TERM_UNIT was not written by omarchy-pulse — leaving it alone"
-else
-  echo "==> installing $TERM_UNIT_NAME (ExecStart -> $VENV)"
-  cat > "$TERM_UNIT" <<UNIT
+# window (herdr / tmux / plain pty) so Top apps is not all "foot". Opt-in:
+# it is a second collector reading /proc and the local sockets. Same
+# ownership rule: a unit we did not write is never touched, and re-running
+# without the flag never removes a unit the user opted into earlier.
+if (( WITH_TERM )); then
+  if { [ -e "$TERM_UNIT" ] || [ -L "$TERM_UNIT" ]; } && ! unit_is_ours "$TERM_UNIT"; then
+    echo "==> $TERM_UNIT was not written by omarchy-pulse — leaving it alone"
+  else
+    echo "==> installing $TERM_UNIT_NAME (ExecStart -> $VENV)"
+    cat > "$TERM_UNIT" <<UNIT
 $UNIT_MARKER
 [Unit]
 Description=omarchy-pulse terminal focus watcher
@@ -139,7 +150,14 @@ RestartSec=5s
 [Install]
 WantedBy=graphical-session.target
 UNIT
-  ENABLE_UNITS+=($TERM_UNIT_NAME)
+    ENABLE_UNITS+=($TERM_UNIT_NAME)
+  fi
+elif [ -e "$TERM_UNIT" ] || [ -L "$TERM_UNIT" ]; then
+  echo "==> $TERM_UNIT already present — leaving it alone"
+else
+  echo "==> terminal watcher not installed (optional). It splits Top apps by the"
+  echo "    program inside the terminal (herdr, tmux, plain shell); add it with:"
+  echo "      install.sh --with-term-watcher"
 fi
 
 # ActivityWatch server: only provide our unit when the machine has none yet.
