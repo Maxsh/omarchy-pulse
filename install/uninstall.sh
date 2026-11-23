@@ -51,6 +51,18 @@ else
   echo "==> no $UNIT_NAME installed by omarchy-pulse — nothing to stop"
 fi
 
+# The terminal-focus watcher unit: removed only when it carries our marker.
+if [ -e "$TERM_UNIT" ] || [ -L "$TERM_UNIT" ]; then
+  if unit_is_ours "$TERM_UNIT"; then
+    echo "==> stopping and removing $TERM_UNIT_NAME"
+    systemctl --user disable --now "$TERM_UNIT_NAME" 2>/dev/null || true
+    rm -f "$TERM_UNIT"
+    systemctl --user daemon-reload
+  else
+    echo "==> $TERM_UNIT was not written by omarchy-pulse — leaving it alone"
+  fi
+fi
+
 if [ "$keep_venv" = 1 ]; then
   echo "==> keeping the watcher venv ($DATA_DIR) — the service above runs from it"
 elif [ -d "$DATA_DIR" ]; then

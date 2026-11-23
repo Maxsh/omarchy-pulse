@@ -26,6 +26,8 @@ BarWidget {
 
   property var todayMinutes: null
   property var windowSpans: null
+  // Terminal-focus spans from pulse-term-watcher (optional; empty = none).
+  property var termSpans: []
 
   // User-settable via the widget's inline shell.json entry; resolveAwUrl
   // keeps it local-only (plugin network rule) — anything but a loopback
@@ -159,7 +161,18 @@ BarWidget {
     fetchWindows()
   }
 
+  // Optional refinement: which program has focus inside a terminal window.
+  // A missing bucket yields no spans, and Top apps keeps the plain window join.
+  function fetchTerm() {
+    PulseModel.fetchTermEvents(root.awUrl, 1, function(result) {
+      if (!result.ok) return
+      root.termSpans = result.spans
+      rebuildApps()
+    })
+  }
+
   function fetchWindows() {
+    fetchTerm()
     PulseModel.fetchWindowEvents(root.awUrl, 1, function(result) {
       if (!result.ok) {
         if (result.error === "noWindowBucket") {
@@ -193,7 +206,7 @@ BarWidget {
 
   function rebuildApps() {
     if (root.todayMinutes === null || root.windowSpans === null) return
-    root.apps = PulseModel.topApps(root.todayMinutes, root.windowSpans, 5, root.appLabels)
+    root.apps = PulseModel.topApps(root.todayMinutes, root.windowSpans, 5, root.appLabels, root.termSpans)
   }
 
   Loader {

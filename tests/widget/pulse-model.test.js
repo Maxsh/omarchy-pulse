@@ -175,6 +175,73 @@ function iso(h, m) {
   check("topApps user label wins", r2.apps[0].label, "slack")
 }
 
+// --- parseTermEvents: the terminal-focus bucket is untrusted -------------------
+{
+  const spans = parseTermEvents([
+    { timestamp: iso(10, 0), duration: 90, data: { app: "opencode", terminal: "foot", via: "herdr" } },
+    { timestamp: iso(10, 5), duration: 10, data: { app: "nvim", terminal: "foot", via: "bogus" } },
+    { timestamp: iso(10, 6), duration: 10, data: { app: "x".repeat(33), terminal: "foot", via: "pty" } },
+    { timestamp: iso(10, 7), duration: 10, data: { app: "nvim", via: "pty" } },
+    { timestamp: "not a date", duration: 10, data: { app: "nvim", terminal: "foot" } },
+    { timestamp: iso(10, 8), duration: 10, data: { app: 5, terminal: "foot" } },
+    null,
+  ])
+  check("term parse keeps valid", spans.length, 2)
+  check("term parse app", spans[0].app, "opencode")
+  check("term parse end", spans[0].endMs - spans[0].startMs, 90000)
+  check("term parse via kept", spans[0].via, "herdr")
+  check("term parse unknown via dropped", spans[1].via, "")
+  check("term parse non-array", parseTermEvents({}).length, 0)
+}
+
+// --- topApps with terminal-focus spans: inner app replaces the emulator --------
+{
+  const at = (h, m) => new Date(iso(h, m)).getTime()
+  const minutes = [0, 1, 2, 3].map((m) => ({ tsMs: at(10, m), kind: 1 }))
+  const windows = [{ startMs: at(9, 0), durationS: 7200, app: "foot" }]
+  const term = [
+    { startMs: at(10, 0), endMs: at(10, 2), app: "opencode", terminal: "foot", via: "herdr" },
+    { startMs: at(10, 2), endMs: at(10, 3), app: "nvim", terminal: "foot", via: "herdr" },
+  ]
+  const r = topApps(minutes, windows, 5, null, term)
+  const byKey = {}
+  r.apps.forEach((a) => (byKey[a.app] = a))
+  check("term inner key", byKey["term:opencode"].activeMinutes, 2)
+  check("term inner label", byKey["term:opencode"].label, "opencode")
+  check("term inner terminal", byKey["term:opencode"].terminal, "foot")
+  check("term inner via", byKey["term:opencode"].via, "herdr")
+  check("term second app", byKey["term:nvim"].activeMinutes, 1)
+  check("term unresolved stays emulator", byKey["foot"].activeMinutes, 1)
+  check("term totals add up", r.totalActive, 4)
+  check("term emulator record has no terminal", byKey["foot"].terminal, "")
+
+  const plain = topApps(minutes, windows, 5, null, [])
+  check("term none = plain join", plain.apps.length, 1)
+  check("term none key", plain.apps[0].app, "foot")
+
+  const other = [{ startMs: at(10, 0), endMs: at(10, 4), app: "nvim", terminal: "kitty", via: "pty" }]
+  check("term other terminal ignored", topApps(minutes, windows, 5, null, other).apps[0].app, "foot")
+
+  const caseTerm = [{ startMs: at(10, 0), endMs: at(10, 4), app: "nvim", terminal: "FOOT", via: "pty" }]
+  check("term class case-insensitive", topApps(minutes, windows, 5, null, caseTerm).apps[0].app, "term:nvim")
+
+  // a window whose class equals a CLI name must not merge with the inner app
+  const clash = [{ startMs: at(9, 0), durationS: 7200, app: "nvim" }]
+  const clashTerm = [{ startMs: at(10, 0), endMs: at(10, 4), app: "nvim", terminal: "foot", via: "pty" }]
+  check("term key never collides with a window class", topApps(minutes, clash, 5, null, clashTerm).apps[0].app, "nvim")
+
+  // labels map applies to the plain inner name
+  const labelled = topApps(minutes, windows, 5, { opencode: "oc" }, term)
+  check("term label override", labelled.apps.filter((a) => a.app === "term:opencode")[0].label, "oc")
+
+  // the span covering most of the minute wins
+  const split = [
+    { startMs: at(10, 0), endMs: at(10, 0) + 15000, app: "nvim", terminal: "foot", via: "pty" },
+    { startMs: at(10, 0) + 15000, endMs: at(10, 1), app: "lazygit", terminal: "foot", via: "pty" },
+  ]
+  check("term majority span wins", topApps([minutes[0]], windows, 5, null, split).apps[0].app, "term:lazygit")
+}
+
 // --- resolveAwUrl: the awUrl setting stays local-only ------------------------
 {
   const D = "http://localhost:5600"

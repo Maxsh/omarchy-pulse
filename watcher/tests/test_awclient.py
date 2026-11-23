@@ -68,6 +68,27 @@ def test_bucket_created_with_stock_schema(server):
     assert body == {"client": "omarchy-pulse", "type": "os.hid.input", "hostname": "testhost"}
 
 
+def test_bucket_type_is_configurable(server):
+    port = server.server_address[1]
+    client = ActivityWatchClient(
+        f"http://127.0.0.1:{port}",
+        "aw-watcher-term_testhost",
+        "testhost",
+        bucket_type="app.terminal.focus",
+    )
+    assert client.ensure_bucket() is True
+    assert _Recorder.requests[-1][2]["type"] == "app.terminal.focus"
+
+
+def test_heartbeat_posts_with_pulsetime(server):
+    client = _client(server)
+    event = {"timestamp": "2026-11-23T10:00:00+00:00", "duration": 0, "data": {"app": "nvim"}}
+    assert client.heartbeat(event, 6.0) is True
+    method, path, body = _Recorder.requests[-1]
+    assert (method, path) == ("POST", f"/api/0/buckets/{BUCKET}/heartbeat?pulsetime=6")
+    assert body == event
+
+
 def test_existing_bucket_counts_as_success(server):
     _Recorder.status_by_path[f"/api/0/buckets/{BUCKET}"] = 304
     assert _client(server).ensure_bucket() is True

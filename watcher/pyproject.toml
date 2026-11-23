@@ -7,6 +7,7 @@ dependencies = ["evdev>=1.7"]
 
 [project.scripts]
 pulse-watcher = "pulse_watcher.__main__:main"
+pulse-term-watcher = "pulse_watcher.term.__main__:main"
 
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.8"]

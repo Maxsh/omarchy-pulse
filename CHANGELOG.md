@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Top apps sees inside the terminal.** A new `pulse-term-watcher` user unit
+  records which program has focus inside the focused terminal window (herdr,
+  tmux or a plain pty) into its own `aw-watcher-term_{host}` bucket, so time
+  under herdr shows up as `opencode`, `nvim`, a shell and so on instead of one
+  `foot` row. Only a short command or agent name is stored (never cwd, paths,
+  arguments, titles or pane contents). Terminal minutes without a match stay
+  with the emulator, and without the bucket nothing changes. `install.sh` and
+  `uninstall.sh` manage the unit under the same "only if Pulse installed it"
+  rule. See docs/PLAN.md D13.
+
 ## 0.1.3 — 2026-11-21
 
 Fixes for the three findings that blocked the verification round for

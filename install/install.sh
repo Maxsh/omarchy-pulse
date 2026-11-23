@@ -116,6 +116,32 @@ UNIT
   ENABLE_UNITS+=(pulse-watcher.service)
 fi
 
+# Terminal-focus watcher: names the program with focus inside the terminal
+# window (herdr / tmux / plain pty) so Top apps is not all "foot". Same
+# ownership rule as above: a unit we did not write is never touched.
+if { [ -e "$TERM_UNIT" ] || [ -L "$TERM_UNIT" ]; } && ! unit_is_ours "$TERM_UNIT"; then
+  echo "==> $TERM_UNIT was not written by omarchy-pulse — leaving it alone"
+else
+  echo "==> installing $TERM_UNIT_NAME (ExecStart -> $VENV)"
+  cat > "$TERM_UNIT" <<UNIT
+$UNIT_MARKER
+[Unit]
+Description=omarchy-pulse terminal focus watcher
+Documentation=https://github.com/Maxsh/omarchy-pulse
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=$VENV/bin/pulse-term-watcher
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=graphical-session.target
+UNIT
+  ENABLE_UNITS+=($TERM_UNIT_NAME)
+fi
+
 # ActivityWatch server: only provide our unit when the machine has none yet.
 if unit_active_or_present aw-server.service; then
   echo "==> aw-server.service already present — leaving it alone"

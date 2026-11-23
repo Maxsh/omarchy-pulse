@@ -1,0 +1,14 @@
+[Unit]
+Description=omarchy-pulse terminal focus watcher
+Documentation=https://github.com/Maxsh/omarchy-pulse
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+# Dev-checkout copy; install/install.sh writes the real unit, pointing at the external venv.
+ExecStart=%h/projects/omarchy-pulse/watcher/.venv/bin/pulse-term-watcher
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=graphical-session.target

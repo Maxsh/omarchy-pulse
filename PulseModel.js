@@ -10,6 +10,7 @@
 var DEFAULT_AW_URL = "http://localhost:5600"
 var BUCKET_TYPE = "os.hid.input"
 var WINDOW_BUCKET_TYPE = "currentwindow"
+var TERM_BUCKET_TYPE = "app.terminal.focus"
 
 // Apps below this share of attributed active time fold into "Other";
 // "Other" itself only shows when it clears the same bar.
@@ -397,6 +398,69 @@ function fetchWindowEvents(awUrl, daysBack, callback) {
   })
 }
 
+// Terminal-focus spans written by pulse-term-watcher (bucket type
+// app.terminal.focus): which program had focus inside a terminal window.
+// The bucket is untrusted input like every AW response — only short plain
+// names survive, `via` is a closed set, and nothing else is read.
+var TERM_VIA = { herdr: true, tmux: true, pty: true }
+var MAX_TERM_APP_LEN = 32
+var MAX_TERM_CLASS_LEN = 64
+
+// Raw bucket events -> [{startMs, endMs, app, terminal, via}] sorted by start.
+function parseTermEvents(events) {
+  var spans = []
+  if (!Array.isArray(events)) return spans
+  for (var i = 0; i < events.length; i++) {
+    var event = events[i] || {}
+    var data = event.data || {}
+    var ts = Date.parse(String(event.timestamp))
+    var app = typeof data.app === "string" ? data.app : ""
+    var terminal = typeof data.terminal === "string" ? data.terminal : ""
+    if (!isFinite(ts) || app === "" || terminal === "") continue
+    if (app.length > MAX_TERM_APP_LEN || terminal.length > MAX_TERM_CLASS_LEN) continue
+    var durationS = Math.max(0, Number(event.duration) || 0)
+    var via = TERM_VIA[data.via] === true ? data.via : ""
+    spans.push({ startMs: ts, endMs: ts + durationS * 1000, app: app, terminal: terminal, via: via })
+  }
+  spans.sort(function(a, b) { return a.startMs - b.startMs })
+  return spans
+}
+
+// Fetch the terminal-focus spans for the last `daysBack` days. Calls back with
+// { ok, spans }. A missing bucket is not an error: the watcher is optional,
+// and Top apps then keeps showing the terminal emulator itself.
+function fetchTermEvents(awUrl, daysBack, callback) {
+  var base = normalizeBase(awUrl)
+  _getJson(base + "/api/0/buckets/", function(ok, buckets) {
+    if (!ok) {
+      callback({ ok: false, error: "unreachable" })
+      return
+    }
+    var bucketId = ""
+    for (var id in buckets) {
+      var bucket = buckets[id]
+      if (bucket && bucket.type === TERM_BUCKET_TYPE) {
+        bucketId = id
+        break
+      }
+    }
+    if (bucketId === "") {
+      callback({ ok: true, spans: [] })
+      return
+    }
+    var now = new Date()
+    var url = base + "/api/0/buckets/" + encodeURIComponent(bucketId)
+      + "/events?limit=" + EVENT_FETCH_LIMIT + "&start=" + encodeURIComponent(isoUtc(midnightDaysAgo(now, daysBack - 1)))
+    _getJson(url, function(ok2, events) {
+      if (!ok2) {
+        callback({ ok: false, error: "unreachable" })
+        return
+      }
+      callback({ ok: true, spans: parseTermEvents(events) })
+    })
+  })
+}
+
 // User-settable display-name overrides for app classes (inline shell.json
 // entry `appLabels`), e.g. { "org.mozilla.firefox": "firefox-esr" }.
 // ActivityWatch has no rename feature (its categorization maps apps to
@@ -484,19 +548,36 @@ function prettyApp(appClass, labels) {
 //
 // `minutes` and `windows` may arrive in any order (the API returns events
 // newest-first) — both are sorted here before the two-pointer walk.
-function topApps(minutes, windows, topN, labels) {
+//
+// `termSpans` (optional, see parseTermEvents) refine terminal minutes: when the
+// focused window is a terminal emulator and a terminal-focus span for that same
+// terminal overlaps the minute, the minute goes to the program inside it
+// (merge key "term:<name>", so a CLI name can never collide with a window
+// class). Terminal minutes without a span stay with the emulator, so totals
+// still add up; with no spans at all the result is the plain window join.
+function topApps(minutes, windows, topN, labels, termSpans) {
   var sortedMinutes = minutes.slice().sort(function(a, b) { return a.tsMs - b.tsMs })
   var sortedWindows = windows.slice().sort(function(a, b) { return a.startMs - b.startMs })
+  var sortedTerm = (termSpans || []).slice().sort(function(a, b) { return a.startMs - b.startMs })
   var byApp = {}
   var winIndex = -1
+  var termIndex = 0
   for (var i = 0; i < sortedMinutes.length; i++) {
     var minute = sortedMinutes[i]
     while (winIndex + 1 < sortedWindows.length && sortedWindows[winIndex + 1].startMs <= minute.tsMs) winIndex++
-    var app = winIndex >= 0 && sortedWindows[winIndex].startMs <= minute.tsMs ? sortedWindows[winIndex].app : ""
-    if (app === "") continue
+    while (termIndex < sortedTerm.length && sortedTerm[termIndex].endMs <= minute.tsMs) termIndex++
+    var windowApp = winIndex >= 0 && sortedWindows[winIndex].startMs <= minute.tsMs ? sortedWindows[winIndex].app : ""
+    if (windowApp === "") continue
+    var inner = sortedTerm.length > 0 ? innerTermSpan(sortedTerm, termIndex, minute.tsMs, windowApp) : null
+    var app = inner ? "term:" + inner.app : windowApp
     var record = byApp[app]
     if (!record) {
-      record = byApp[app] = { app: app, label: prettyApp(app, labels), kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
+      if (inner) {
+        var hasLabel = labels && Object.prototype.hasOwnProperty.call(labels, inner.app)
+        record = byApp[app] = { app: app, label: hasLabel ? labels[inner.app] : inner.app, terminal: windowApp, via: inner.via, kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
+      } else {
+        record = byApp[app] = { app: app, label: prettyApp(app, labels), terminal: "", via: "", kbMinutes: 0, mouseMinutes: 0, activeMinutes: 0 }
+      }
     }
     record.activeMinutes += 1
     if (minute.kind === 1) record.kbMinutes += 1
@@ -534,6 +615,32 @@ function topApps(minutes, windows, topN, labels) {
     maxShare = Math.max(maxShare, kept[m].kbTotalShare, kept[m].mouseTotalShare)
   }
   return { apps: kept, totalActive: totalActive, maxShare: maxShare }
+}
+
+// The terminal-focus span that covers most of the minute [tsMs, tsMs + 60 s)
+// for the focused terminal `windowApp` (class compared case-insensitively),
+// or null. `spans` is sorted by start; `from` is the first span that can still
+// overlap this or a later minute.
+function innerTermSpan(spans, from, tsMs, windowApp) {
+  var endMs = tsMs + 60000
+  var target = windowApp.toLowerCase()
+  var overlapByApp = {}
+  var best = null
+  var bestOverlap = 0
+  for (var i = from; i < spans.length && spans[i].startMs < endMs; i++) {
+    var span = spans[i]
+    if (span.terminal.toLowerCase() !== target) continue
+    var overlap = Math.min(span.endMs, endMs) - Math.max(span.startMs, tsMs)
+    if (overlap <= 0) continue
+    var key = "term:" + span.app
+    var total = (overlapByApp[key] || 0) + overlap
+    overlapByApp[key] = total
+    if (total > bestOverlap) {
+      bestOverlap = total
+      best = span
+    }
+  }
+  return best
 }
 
 function withPercentages(record, totalActive) {

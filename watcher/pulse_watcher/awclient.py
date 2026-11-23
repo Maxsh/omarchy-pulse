@@ -51,12 +51,14 @@ class ActivityWatchClient:
         hostname: str,
         client_name: str = "omarchy-pulse",
         timeout_s: float = 5.0,
+        bucket_type: str = BUCKET_TYPE,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.bucket_id = bucket_id
         self.hostname = hostname
         self.client_name = client_name
         self.timeout_s = timeout_s
+        self.bucket_type = bucket_type
         self._opener = _direct_opener()
 
     def _request(self, method: str, path: str, payload: object | None = None) -> tuple[int, str]:
@@ -82,7 +84,7 @@ class ActivityWatchClient:
 
     def ensure_bucket(self) -> bool:
         """Create the bucket if missing; True also when it already exists (HTTP 304)."""
-        payload = {"client": self.client_name, "type": BUCKET_TYPE, "hostname": self.hostname}
+        payload = {"client": self.client_name, "type": self.bucket_type, "hostname": self.hostname}
         status, body = self._request("POST", f"/api/0/buckets/{self.bucket_id}", payload)
         if status in _BUCKET_OK:
             log.debug("bucket %s present (HTTP %d)", self.bucket_id, status)
@@ -99,6 +101,18 @@ class ActivityWatchClient:
         if status == 200:
             return True
         log.error("sending %d event(s) failed (HTTP %d): %s", len(events), status, body)
+        return False
+
+    def heartbeat(self, event: Mapping, pulsetime_s: float) -> bool:
+        """Send one heartbeat; the server merges equal data within ``pulsetime_s``."""
+        status, body = self._request(
+            "POST",
+            f"/api/0/buckets/{self.bucket_id}/heartbeat?pulsetime={pulsetime_s:g}",
+            dict(event),
+        )
+        if status == 200:
+            return True
+        log.error("heartbeat failed (HTTP %d): %s", status, body)
         return False
 
 

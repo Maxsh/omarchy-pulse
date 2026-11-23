@@ -6,6 +6,11 @@ UNIT_NAME="pulse-watcher.service"
 PULSE_UNIT="$SYSTEMD_DIR/$UNIT_NAME"
 UNIT_MARKER="# Managed by omarchy-pulse install.sh"
 
+# The terminal-focus watcher unit. Unlike pulse-watcher.service it needs no
+# `input` group; the same marker line is the only proof of ownership.
+TERM_UNIT_NAME="pulse-term-watcher.service"
+TERM_UNIT="$SYSTEMD_DIR/$TERM_UNIT_NAME"
+
 # True when the unit file at $1 is a regular file (not a symlink, e.g. into a
 # dotfiles repo) written by install.sh: it carries our marker line. Nothing
 # else counts as ownership — an ExecStart pointing at our venv proves

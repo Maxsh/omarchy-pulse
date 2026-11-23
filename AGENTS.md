@@ -33,7 +33,7 @@ nothing may write into the plugin directory at runtime.
 
 ## Golden rules
 
-1. **Privacy invariant: counts, never content.** The watcher may count events per device class and derive idle time. It must never record, log, store, or transmit keycodes, keysyms, characters, or anything that identifies *which* key was pressed. This holds during debugging too: no raw evdev dumps, no verbose key logging. Prefer unit tests that assert emitted events contain only counts.
+1. **Privacy invariant: counts, never content.** The watcher may count events per device class and derive idle time. It must never record, log, store, or transmit keycodes, keysyms, characters, or anything that identifies *which* key was pressed. This holds during debugging too: no raw evdev dumps, no verbose key logging. Prefer unit tests that assert emitted events contain only counts. The same holds for `pulse-term-watcher` (`watcher/pulse_watcher/term/`): it may store only a plain process or agent *name* (plus terminal class and resolver), never cwd, paths, argv beyond argv[0], pane/terminal/window titles, workspace names or pane contents, and it must never call herdr's `pane.read`.
 2. **Never edit `/usr/share/omarchy/`.** It is owned by the omarchy package and overwritten on update. Reading it is safe and encouraged (great source of patterns). User customization lives in `~/.config/`.
 3. **The widget is an Omarchy shell plugin** and must follow Omarchy's plugin rules:
    - Treat any text not produced by the plugin itself as untrusted: bind it only to `Text { textFormat: Text.PlainText }` sinks. ActivityWatch API responses count as untrusted.

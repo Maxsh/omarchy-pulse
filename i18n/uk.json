@@ -9,6 +9,8 @@
   "pulse.sectionApps": "Топ застосунків",
   "pulse.appsHint": "Для «Топ застосунків» потрібне відстеження вікон — його забезпечує awatcher, який входить до складу ActivityWatch",
   "pulse.other": "Інше",
+  "pulse.inTerminal": "у %1",
+  "pulse.viaTool": "через %1",
   "pulse.sectionWeek": "Останні 7 днів",
   "pulse.sectionTotal": "Всього",
   "pulse.refresh": "Оновити",
