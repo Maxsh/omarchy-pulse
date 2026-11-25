@@ -38,6 +38,21 @@ var BOTH_SPLIT = 0.5
 // (-1), while an explicit positive number means the same on both.
 var EVENT_FETCH_LIMIT = 20000
 
+// Failed-fetch retry. The ActivityWatch server starts with the graphical
+// session and can lose the race against the shell's first poll (connection
+// refused for the first ~1s after login), so a failed fetch retries within
+// seconds instead of sitting out the whole poll period. Constant short
+// delay, capped — a permanently-down server falls back to the normal poll
+// cadence once the cap is spent.
+var RETRY_DELAY_MS = 5000
+var MAX_FETCH_RETRIES = 5
+
+// Delay before the next retry, or null once the cap is reached.
+function retryDelayMs(attempts) {
+  if (attempts >= MAX_FETCH_RETRIES) return null
+  return RETRY_DELAY_MS
+}
+
 function normalizeBase(url) {
   var base = String(url || DEFAULT_AW_URL)
   while (base.charAt(base.length - 1) === "/") base = base.slice(0, -1)

@@ -298,6 +298,15 @@ function iso(h, m) {
   check("updateState garbage installed", watcherUpdateState("garbage", "0.1.2"), "outdated")
 }
 
+// --- failed-fetch retry: boot race where the server comes up late -------------
+{
+  check("retry delay first attempt", retryDelayMs(0), 5000)
+  check("retry delay mid", retryDelayMs(2), 5000)
+  check("retry delay last allowed", retryDelayMs(4), 5000)
+  check("retry capped at max", retryDelayMs(5), null)
+  check("retry beyond cap", retryDelayMs(9), null)
+}
+
 if (fails.length) {
   console.error("FAIL\n" + fails.join("\n"))
   process.exit(1)

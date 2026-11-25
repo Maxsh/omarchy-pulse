@@ -23,6 +23,8 @@ BarWidget {
   property var apps: null
   property bool appsUnavailable: false
   property string lastError: ""
+  // Failed-fetch retry counter for the boot race (see retryTimer below).
+  property int fetchRetries: 0
 
   property var todayMinutes: null
   property var windowSpans: null
@@ -145,20 +147,45 @@ BarWidget {
     onTriggered: root.refresh()
   }
 
+  // Short retry after a failed fetch: at login the shell can load before the
+  // ActivityWatch server listens, and the first poll then fails for ~1s.
+  // Retries within seconds instead of showing "not reachable" for a whole
+  // poll period; capped, so a permanently-down server stays on the normal
+  // poll cadence (see PulseModel.retryDelayMs).
+  Timer {
+    id: retryTimer
+    interval: PulseModel.retryDelayMs(root.fetchRetries) || 0
+    onTriggered: root.refresh()
+  }
+
   function refresh() {
     // Light poll: today only, plus the window join so Top apps stays live
     // and self-heals once the window watcher creates its bucket.
     PulseModel.fetch(root.awUrl, 1, function(result) {
       if (!result.ok) {
         root.lastError = result.error
+        root.scheduleRetry()
         return
       }
+      root.noteFetchOk()
       root.lastError = ""
       root.activity = result.activity
       root.todayMinutes = result.todayMinutes
       rebuildApps()
     })
     fetchWindows()
+  }
+
+  // Failure/success bookkeeping for the short retry above.
+  function scheduleRetry() {
+    if (root.fetchRetries >= PulseModel.MAX_FETCH_RETRIES) return
+    root.fetchRetries += 1
+    retryTimer.restart()
+  }
+
+  function noteFetchOk() {
+    root.fetchRetries = 0
+    retryTimer.stop()
   }
 
   // Optional refinement: which program has focus inside a terminal window.
@@ -193,8 +220,10 @@ BarWidget {
     PulseModel.fetch(root.awUrl, 7, function(result) {
       if (!result.ok) {
         root.lastError = result.error
+        root.scheduleRetry()
         return
       }
+      root.noteFetchOk()
       root.lastError = ""
       root.activity = result.activity
       root.week = { days: result.days, total: result.total }
